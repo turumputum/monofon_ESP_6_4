@@ -46,9 +46,7 @@
 
 #include "ftp.h"
 
-#include "st7789.h"
-#include "fontx.h"
-#include "decode_jpeg.h"
+
 #include "lwip/dns.h"
 
 #include "esp_console.h"
@@ -75,8 +73,6 @@ EventGroupHandle_t xEventTask;
 
 extern uint8_t FTP_SESSION_START_FLAG;
 
-TFT_t screen;
-FontxFile fx32G[2];
 
 configuration monofon_config;
 stateStruct monofon_state;
@@ -224,7 +220,7 @@ static void playerTask(void *arg) {
 
 	char payload[15];
 	xTaskCreatePinnedToCore(listenListener, "audio_listener", 1024 * 3, NULL, 1,
-			NULL, 0);
+	NULL, 0);
 
 	while (1) {
 		//listenListener();
@@ -240,20 +236,12 @@ static void playerTask(void *arg) {
 				}
 
 				if (monofon_state.phoneUp != monofon_config.sensInverted) {
-					/*
-					 if (monofon_state.mqtt_error == 0) {
-					 sprintf((char*) payload, "%d", monofon_state.phoneUp);
-					 mqtt_pub(phonUp_State_topic, payload);
-					 }*/
 
 					monofon_state.currentLang = monofon_config.defaultLang;
 					vTaskDelay(pdMS_TO_TICKS(100));
 
 					if (monofon_config.lang[monofon_state.currentLang].icoFile[0]
 							!= 0) {
-						//lcdFillScreen(&screen, BLACK);
-						BMP_showPic(&screen);
-						//JPEGTest(&screen, monofon_config.lang[monofon_state.currentLang].icoFile, 240, 240);
 					}
 
 					audioPlay();
@@ -266,26 +254,11 @@ static void playerTask(void *arg) {
 						nextImageNum = 0;
 					}
 
-					BMP_cashPic(monofon_config.lang[nextImageNum].icoFile, 240,
-							240);
 				} else {
 					gpio_set_level(RELAY_1_GPIO, 0);
 					gpio_set_level(RELAY_2_GPIO, 1);
-					/*
-					 if (monofon_state.mqtt_error == 0) {
-					 sprintf(payload, "%d", monofon_state.phoneUp);
-					 mqtt_pub(phonUp_State_topic, payload);
-					 }*/
-					audioStop();
-					if (monofon_config.introIco[0] != 0) {
-						//lcdFillScreen(&screen, BLACK);
-						BMP_cashPic(monofon_config.introIco, 240, 240);
-						BMP_showPic(&screen);
-						BMP_cashPic(
-								monofon_config.lang[monofon_config.defaultLang].icoFile,
-								240, 240);
-					}
 
+					audioStop();
 				}
 
 				monofon_state.prevPhoneUp = monofon_state.phoneUp;
@@ -299,17 +272,6 @@ static void playerTask(void *arg) {
 				}
 				audioStop();
 				audioPlay();
-
-				if (monofon_config.lang[monofon_state.currentLang].icoFile[0]
-						!= 0) {
-					BMP_showPic(&screen);
-					nextImageNum = monofon_state.currentLang + 1;
-					if (nextImageNum >= monofon_state.numOfLang) {
-						nextImageNum = 0;
-					}
-					BMP_cashPic(monofon_config.lang[nextImageNum].icoFile, 240,
-							240);
-				}
 				//vTaskDelay(pdMS_TO_TICKS(100));
 
 			}
@@ -332,7 +294,7 @@ uint8_t sd_card_init() {
 	esp_err_t ret;
 
 	esp_vfs_fat_sdmmc_mount_config_t mount_config = { .format_if_mount_failed =
-			true, .max_files = 5, .allocation_unit_size = 16 * 1024 };
+	true, .max_files = 5, .allocation_unit_size = 16 * 1024 };
 
 	sdmmc_card_t *card;
 	ESP_LOGD(TAG, "try connect sdSpi");
@@ -340,7 +302,7 @@ uint8_t sd_card_init() {
 	//host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
 
 	spi_bus_config_t bus_cfg = { .mosi_io_num = PIN_NUM_MOSI, .miso_io_num =
-			PIN_NUM_MISO, .sclk_io_num = PIN_NUM_CLK, .quadwp_io_num = -1,
+	PIN_NUM_MISO, .sclk_io_num = PIN_NUM_CLK, .quadwp_io_num = -1,
 			.quadhd_io_num = -1, .max_transfer_sz = 4000, };
 	ret = spi_bus_initialize(host.slot, &bus_cfg, SPI_DMA_CH_AUTO);
 	if (ret != ESP_OK) {
@@ -383,8 +345,7 @@ void nvs_init() {
 	uint32_t heapBefore = xPortGetFreeHeapSize();
 	esp_err_t ret;
 	ret = nvs_flash_init();
-	if (ret == ESP_ERR_NVS_NO_FREE_PAGES
-			|| ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
 		ESP_ERROR_CHECK(nvs_flash_erase());
 		ret = nvs_flash_init();
 	}
@@ -396,41 +357,13 @@ void nvs_init() {
 			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
 }
 
-void st7789_init() {
-#define CONFIG_WIDTH 240
-#define CONFIG_HEIGHT 240
-
-#define CONFIG_MOSI_GPIO 35
-#define CONFIG_SCLK_GPIO 36
-#define CONFIG_CS_GPIO 11
-#define CONFIG_DC_GPIO 13
-#define CONFIG_RESET_GPIO 14
-#define CONFIG_BL_GPIO -1
-
-	uint32_t startTick = xTaskGetTickCount();
-	uint32_t heapBefore = xPortGetFreeHeapSize();
-
-	spi_master_init(&screen, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO,
-	CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO);
-	lcdInit(&screen, CONFIG_WIDTH, CONFIG_HEIGHT, 0, 0);
-
-	InitFontx(fx32G, "/spiffs/ILGH32XB.FNT", ""); // 16x32Dot Gothic
-
-	lcdFillScreen(&screen, BLACK);
-
-	ESP_LOGD(TAG,
-			"Screen init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
-}
-
 void spiffs_init() {
 
 	uint32_t startTick = xTaskGetTickCount();
 	uint32_t heapBefore = xPortGetFreeHeapSize();
 	esp_err_t ret;
 	esp_vfs_spiffs_conf_t conf = { .base_path = "/spiffs", .partition_label =
-			NULL, .max_files = 10, .format_if_mount_failed = true };
+	NULL, .max_files = 10, .format_if_mount_failed = true };
 	ret = esp_vfs_spiffs_register(&conf);
 	size_t total = 0, used = 0;
 	ret = esp_spiffs_info(NULL, &total, &used);
@@ -450,8 +383,6 @@ void spiffs_init() {
 void relayGPIO_init() {
 	uint32_t startTick = xTaskGetTickCount();
 	uint32_t heapBefore = xPortGetFreeHeapSize();
-
-
 
 	gpio_reset_pin(RELAY_1_GPIO);
 	gpio_reset_pin(RELAY_2_GPIO);
@@ -505,7 +436,7 @@ void console_init() {
 	esp_console_repl_t *repl = NULL;
 	esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
 	esp_console_dev_uart_config_t uart_config =
-			ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+	ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
 	/* Prompt to be printed before each line.
 	 * This can be customized, made dynamic, etc.
 	 */
@@ -574,17 +505,12 @@ void app_main(void) {
 
 	initLeds();
 
-	spiffs_init();
-	//nvs_init();
-
-	//st7789_init();
+	nvs_init();
 
 	load_Default_Config();
 
 	ESP_LOGD(TAG, "try init sdCard");
 	if (sd_card_init() != ESP_OK) {
-		lcdDrawString(&screen, fx32G, 25, 140, (uint8_t*) "SD card FAIL", RED);
-
 		showState(LED_STATE_SD_ERROR);
 		monofon_state.sd_error = 1;
 		esp_restart();
@@ -600,8 +526,6 @@ void app_main(void) {
 			monofon_state.config_error = 0;
 			setLogLevel(monofon_config.logLevel);
 		} else {
-			lcdDrawString(&screen, fx32G, 20, 140,
-					(uint8_t*) "Load config FAIL", RED);
 			showState(LED_STATE_CONFIG_ERROR);
 			char tmpString[40];
 			sprintf(tmpString, "Load config FAIL in line: %d", res);
@@ -611,44 +535,32 @@ void app_main(void) {
 
 		if (loadContent() == ESP_OK) {
 			monofon_state.content_error = 0;
-
-			//BMP_cashPic(monofon_config.introIco, 240, 240);
-			//BMP_showPic(&screen);
-			//BMP_cashPic(monofon_config.lang[monofon_config.defaultLang].icoFile,240, 240);
-
 		} else {
 			ESP_LOGD(TAG, "Load Content FAIL");
-			//lcdFillScreen(&screen, BLACK);
-			//lcdDrawString(&screen, fx32G, 15, 140,	(uint8_t*) "Load content FAIL", RED);
 			showState(LED_STATE_CONTENT_ERROR);
 			writeErrorTxt("Load content FAIL");
 			monofon_state.content_error = 1;
 		}
 
-		/*
-		 if (wifiInit() != ESP_OK) {
-		 monofon_state.wifi_error = 1;
-		 lcdFillScreen(&screen, BLACK);
-		 lcdDrawString(&screen, fx32G, 100, 50, (uint8_t*) "WIFI connect FAIL", RED);
-		 showState(LED_STATE_WIFI_FAIL);
-		 wifi_scan();
-		 } else {
+		if (wifiInit() != ESP_OK) {
+			monofon_state.wifi_error = 1;
+			showState(LED_STATE_WIFI_FAIL);
+			wifi_scan();
+		} else {
+			if (monofon_config.WIFI_mode != 0) {
+				xTaskCreatePinnedToCore(ftp_task, "FTP", 1024 * 6, NULL, 2,
+						NULL, 0);
+				vTaskDelay(pdMS_TO_TICKS(100));
+				mdns_start();
 
-		 if (monofon_config.WIFI_mode != 0) {
+			}
+		}
 
-		 xTaskCreatePinnedToCore(ftp_task, "FTP", 1024 * 6, NULL, 2, NULL, 0);
-
-		 vTaskDelay(pdMS_TO_TICKS(100));
-		 //mdns_start();
-		 //mqtt_app_start();
-		 }
-		 }
-		 */
 	}
 
 	xTaskCreatePinnedToCore(playerTask, "player", 1024 * 8, NULL, 1, NULL, 0);
 	vTaskDelay(pdMS_TO_TICKS(100));
-	xTaskCreatePinnedToCore(sensTask, "sens", 1024 * 2, NULL, 24, NULL, 1);
+	xTaskCreatePinnedToCore(sensTask, "sens", 1024 * 4, NULL, 24, NULL, 1);
 
 	console_init();
 
@@ -659,15 +571,6 @@ void app_main(void) {
 	while (1) {
 
 		vTaskDelay(pdMS_TO_TICKS(100));
-		if (monofon_state.mqtt_error == 0) {
-			char tmpString[10];
-			sprintf(tmpString, "%d", pdTICKS_TO_MS(xTaskGetTickCount()) / 1000);
-			//mqtt_pub(lifeTime_topic,tmpString);
-		}
-		if (monofon_state.changeLang == 1) {
-			ESP_LOGI(TAG, "Change lang to:%d", monofon_state.currentLang);
-			//monofon_state.changeLang = 0;
-		}
 
 	}
 }

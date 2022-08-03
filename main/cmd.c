@@ -192,13 +192,15 @@ int status(void){
 
 }
 
-void resetConfig(void){
+int resetConfig(void){
     if (remove("/sdcard/config.ini")!=ESP_OK)
     {
          ESP_LOGD(TAG, "/sdcard/config.ini delete failed");
-         esp_restart();
-		//return ESP_FAIL;
+
+
     }
+    esp_restart();
+    return ESP_OK;
 }
 
 esp_console_cmd_t cmd_status={
