@@ -78,8 +78,9 @@ void lcdBacklightOn(TFT_t * dev);
 void lcdInversionOff(TFT_t * dev);
 void lcdInversionOn(TFT_t * dev);
 
-void JPEGTest(TFT_t * dev, char * file, int width, int height);
 uint8_t BMP_cashPic(char *file, int width, int height);
 void BMP_showPic(TFT_t *dev);
+
+void JPEGTest(TFT_t * dev, char * file, int width, int height);
 #endif /* MAIN_ST7789_H_ */
 

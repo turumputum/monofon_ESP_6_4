@@ -46,14 +46,24 @@
 
 #include "ftp.h"
 
-
+#include "st7789.h"
+#include "fontx.h"
+#include "decode_jpeg.h"
 #include "lwip/dns.h"
 
 #include "esp_console.h"
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
+#include "esp_vfs_cdcacm.h"
 #include "myMqtt.h"
 #include "cmd.h"
+#include "spisd.h"
+
+#include "tusb.h"
+#include "cdc.h"
+extern void board_init(void);
+
+#define USBD_STACK_SIZE     4096
 
 #define MDNS_ENABLE_DEBUG 0
 
@@ -72,7 +82,30 @@ int FTP_TASK_FINISH_BIT = BIT2;
 EventGroupHandle_t xEventTask;
 
 extern uint8_t FTP_SESSION_START_FLAG;
+extern uint8_t FLAG_PC_AVAILEBLE;
+extern uint8_t FLAG_PC_EJECT;
 
+RTC_NOINIT_ATTR int RTC_flagMscEnabled;
+int flagMscEnabled;
+
+// static task
+StackType_t usb_device_stack[USBD_STACK_SIZE];
+StaticTask_t usb_device_taskdef;
+// static task for cdc
+//#define CDC_STACK_SZIE      (configMINIMAL_STACK_SIZE*3)
+//StackType_t cdc_stack[CDC_STACK_SZIE];
+//StaticTask_t cdc_taskdef;
+//void usb_device_task(void *param);
+//void cdc_task(void *params);
+
+int isMscEnabled() {
+	return flagMscEnabled;
+}
+
+#define RTC_FLAG_ENABLED_VALUE		0xAAAA5555
+
+TFT_t screen;
+FontxFile fx32G[2];
 
 configuration monofon_config;
 stateStruct monofon_state;
@@ -83,6 +116,41 @@ uint32_t ADC_AVERAGE;
 #define RELAY_2_GPIO (48)
 
 void listenListener(void *pvParameters);
+
+void RTC_IRAM_ATTR storeMscFlag() {
+	RTC_flagMscEnabled = flagMscEnabled ? RTC_FLAG_ENABLED_VALUE : 0;
+}
+
+void RTC_IRAM_ATTR loadMscFlag() {
+	flagMscEnabled = RTC_flagMscEnabled == RTC_FLAG_ENABLED_VALUE;
+
+	//printf("@@@@@@@@@@@@@@@@@@@@@@@@ flagMscEnabled = %d\n", flagMscEnabled);
+}
+
+void setMscEnabled(int ena) {
+	flagMscEnabled = ena;
+	storeMscFlag();
+	FLAG_PC_AVAILEBLE = ena;
+	ESP_LOGD(TAG, "Set USB MSD to: %d", ena);
+
+	xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL,
+	configMAX_PRIORITIES - 1, usb_device_stack, &usb_device_taskdef);
+	xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL,
+	configMAX_PRIORITIES - 2, cdc_stack, &cdc_taskdef);
+
+	if (ena == 1) {
+		vTaskDelay(pdMS_TO_TICKS(1000));
+		while (FLAG_PC_AVAILEBLE && !FLAG_PC_EJECT) {
+			showState(LED_STATE_MSD_WORK);
+			printf("PC_AVAILEBLE - WORK MSD+CDC \r\n");
+			vTaskDelay(pdMS_TO_TICKS(1000));
+		}
+		ESP_LOGD(TAG, "Set USB MSD to: %d", ena);
+		vTaskDelete(&usb_device_taskdef);
+		vTaskDelete(&cdc_taskdef);
+	}
+	//esp_restart();
+}
 
 static void sensTask(void *arg) {
 
@@ -126,9 +194,7 @@ static void sensTask(void *arg) {
 
 	uint8_t DELTA_DEF_THRESHOLD = 30;
 
-	ESP_LOGD("SENS",
-			"SNS init complite, start val:%d. Duration: %d ms. Heap usage: %d free heap:%d",
-			average_min, (xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
+	ESP_LOGD("SENS", "SNS init complite, start val:%d. Duration: %d ms. Heap usage: %d free heap:%d", average_min, (xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
 			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
 
 	while (1) {
@@ -144,9 +210,9 @@ static void sensTask(void *arg) {
 
 			sens_state = gpio_get_level(TOUCH_SENS_PIN);
 			if (sens_state != prevSens_state) {
-				if ((sens_state)
-						&& (monofon_state.phoneUp != monofon_config.sensInverted)) {
+				if ((sens_state) && (monofon_state.phoneUp == 1)) {
 					monofon_state.changeLang = 1;
+					printf("change lang\r\n");
 				}
 				prevSens_state = sens_state;
 			}
@@ -161,47 +227,38 @@ static void sensTask(void *arg) {
 			if (sensInited) {
 				if (abs(adc_delta) < DELTA_DEF_THRESHOLD) {
 					if (monofon_state.phoneUp == 0) {
-						average_max = (double) average_max * (1 - kl)
-								+ (double) ADC_AVERAGE * kl;
+						average_max = (double) average_max * (1 - kl) + (double) ADC_AVERAGE * kl;
 					} else {
-						average_min = (double) average_min * (1 - kl)
-								+ (double) ADC_AVERAGE * kl;
+						average_min = (double) average_min * (1 - kl) + (double) ADC_AVERAGE * kl;
 					}
 				}
 
-				monofon_config.magnitudeLevel = average_min
-						+ (average_max - average_min) / 2;
+				monofon_config.magnitudeLevel = average_min + (average_max - average_min) / 2;
 
 				if (ADC_AVERAGE > monofon_config.magnitudeLevel) {
-					monofon_state.phoneUp = 0;
+					monofon_state.phoneUp = monofon_config.phoneSensInverted;
 				} else {
-					monofon_state.phoneUp = 1;
+					monofon_state.phoneUp = !monofon_config.phoneSensInverted;
 				}
 			}
 
 			if (!sensInited) {
-				average_min = (double) average_min * (1 - kl)
-						+ (double) ADC_AVERAGE * kl;
+				average_min = (double) average_min * (1 - kl) + (double) ADC_AVERAGE * kl;
 				average_max = average_min;
 
-				if ((abs(adc_delta) > DELTA_DEF_THRESHOLD)
-						&& (xTaskGetTickCount() - startTick > 100)) {
+				if ((abs(adc_delta) > DELTA_DEF_THRESHOLD) && (xTaskGetTickCount() - startTick > 100)) {
 					ESP_LOGD(TAG, "First detection, val:  %d", ADC_AVERAGE);
 					sensInited = 1;
 					if (adc_delta > 0) {
-						monofon_state.phoneUp = 1;
+						monofon_state.phoneUp = !monofon_config.phoneSensInverted;
 					} else {
-						monofon_state.phoneUp = 0;
+						monofon_state.phoneUp = monofon_config.phoneSensInverted;
 					}
 				}
 			}
 
 			if (monofon_config.sensDebug) {
-				ESP_LOGI(TAG,
-						"magnitude ADC_AVERAGE: %d DELTA: %d THRESHOLD: %d, min:%d max:%d",
-						ADC_AVERAGE, abs(adc_delta),
-						monofon_config.magnitudeLevel, average_min,
-						average_max);
+				ESP_LOGI(TAG, "magnitude ADC_AVERAGE: %d DELTA: %d THRESHOLD: %d, min:%d max:%d", ADC_AVERAGE, abs(adc_delta), monofon_config.magnitudeLevel, average_min, average_max);
 				//ESP_LOGI(TAG,"internaal hall sens: %d",hall_sensor_read());
 				//printf( "%d %d %d \r\n",ADC_AVERAGE,adc_delta, monofon_config.magnitudeLevel);
 			}
@@ -229,19 +286,17 @@ static void playerTask(void *arg) {
 
 		if (monofon_config.playerMode == 1) {
 			if (monofon_state.phoneUp != monofon_state.prevPhoneUp) {
-				if (monofon_config.sensInverted) {
-					printf("phoneUp %d \r\n", !monofon_state.phoneUp);
-				} else {
-					printf("phoneUp %d \r\n", monofon_state.phoneUp);
-				}
 
-				if (monofon_state.phoneUp != monofon_config.sensInverted) {
+				printf("phoneUp %d \r\n", monofon_state.phoneUp);
+				usbprintf("phoneUp %d \r\n", monofon_state.phoneUp);
+
+				if (monofon_state.phoneUp == 1) {
 
 					monofon_state.currentLang = monofon_config.defaultLang;
-					vTaskDelay(pdMS_TO_TICKS(100));
+					vTaskDelay(pdMS_TO_TICKS(500));
 
-					if (monofon_config.lang[monofon_state.currentLang].icoFile[0]
-							!= 0) {
+					if (monofon_config.lang[monofon_state.currentLang].icoFile[0] != 0) {
+						JPEGTest(&screen, monofon_config.lang[monofon_state.currentLang].icoFile, 240, 240);
 					}
 
 					audioPlay();
@@ -253,12 +308,15 @@ static void playerTask(void *arg) {
 					if (nextImageNum >= monofon_state.numOfLang) {
 						nextImageNum = 0;
 					}
-
 				} else {
 					gpio_set_level(RELAY_1_GPIO, 0);
 					gpio_set_level(RELAY_2_GPIO, 1);
 
 					audioStop();
+					if (monofon_config.introIco[0] != 0) {
+						JPEGTest(&screen, monofon_config.introIco, 240, 240);
+					}
+
 				}
 
 				monofon_state.prevPhoneUp = monofon_state.phoneUp;
@@ -271,6 +329,16 @@ static void playerTask(void *arg) {
 					monofon_state.currentLang = 0;
 				}
 				audioStop();
+
+
+				if (monofon_config.lang[monofon_state.currentLang].icoFile[0] != 0) {
+					JPEGTest(&screen, monofon_config.lang[monofon_state.currentLang].icoFile, 240, 240);
+					nextImageNum = monofon_state.currentLang + 1;
+					if (nextImageNum >= monofon_state.numOfLang) {
+						nextImageNum = 0;
+					}
+				}
+
 				audioPlay();
 				//vTaskDelay(pdMS_TO_TICKS(100));
 
@@ -299,15 +367,13 @@ uint8_t sd_card_init() {
 	sdmmc_card_t *card;
 	ESP_LOGD(TAG, "try connect sdSpi");
 	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-	//host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
+	host.max_freq_khz = SDMMC_FREQ_52M;
 
 	spi_bus_config_t bus_cfg = { .mosi_io_num = PIN_NUM_MOSI, .miso_io_num =
-	PIN_NUM_MISO, .sclk_io_num = PIN_NUM_CLK, .quadwp_io_num = -1,
-			.quadhd_io_num = -1, .max_transfer_sz = 4000, };
+	PIN_NUM_MISO, .sclk_io_num = PIN_NUM_CLK, .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = 4000, };
 	ret = spi_bus_initialize(host.slot, &bus_cfg, SPI_DMA_CH_AUTO);
 	if (ret != ESP_OK) {
-		ESP_LOGE(TAG, "Failed to initialize bus. Error: %s",
-				esp_err_to_name(ret));
+		ESP_LOGE(TAG, "Failed to initialize bus. Error: %s", esp_err_to_name(ret));
 		return ret;
 	} else {
 		ESP_LOGD(TAG, "sdSpi init OK");
@@ -319,23 +385,17 @@ uint8_t sd_card_init() {
 	slot_config.host_id = host.slot;
 
 	ESP_LOGD(TAG, "try mount fs");
-	ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_config,
-			&mount_config, &card);
+	ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &card);
 	if (ret != ESP_OK) {
 		if (ret == ESP_FAIL) {
-			ESP_LOGE(TAG,
-					"Failed to mount filesystem. " "If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
+			ESP_LOGE(TAG, "Failed to mount filesystem. " "If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
 		} else {
-			ESP_LOGE(TAG,
-					"Failed to initialize the card (%s). " "Make sure SD card lines have pull-up resistors in place.",
-					esp_err_to_name(ret));
+			ESP_LOGE(TAG, "Failed to initialize the card (%s). " "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
 		}
 		return ret;
 	} else {
-		ESP_LOGD(TAG,
-				"SD_card init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-				(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-				heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+		ESP_LOGD(TAG, "SD_card init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+				xPortGetFreeHeapSize());
 	}
 	return ret;
 }
@@ -351,10 +411,33 @@ void nvs_init() {
 	}
 	ESP_ERROR_CHECK(ret);
 
-	ESP_LOGD(TAG,
-			"NVS init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+	ESP_LOGD(TAG, "NVS init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+}
+
+void st7789_init() {
+#define CONFIG_WIDTH 240
+#define CONFIG_HEIGHT 240
+
+#define CONFIG_MOSI_GPIO 9
+#define CONFIG_SCLK_GPIO 12
+#define CONFIG_CS_GPIO 11
+#define CONFIG_DC_GPIO 13
+#define CONFIG_RESET_GPIO 14
+#define CONFIG_BL_GPIO -1
+
+	uint32_t startTick = xTaskGetTickCount();
+	uint32_t heapBefore = xPortGetFreeHeapSize();
+
+	spi_master_init(&screen, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO,
+	CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO);
+	lcdInit(&screen, CONFIG_WIDTH, CONFIG_HEIGHT, 0, 0);
+
+	InitFontx(fx32G, "/spiffs/ILGH32XB.FNT", ""); // 16x32Dot Gothic
+
+	lcdFillScreen(&screen, GREEN);
+
+	ESP_LOGD(TAG, "Screen init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+			xPortGetFreeHeapSize());
 }
 
 void spiffs_init() {
@@ -369,13 +452,10 @@ void spiffs_init() {
 	ret = esp_spiffs_info(NULL, &total, &used);
 
 	if (ret != ESP_OK) {
-		ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)",
-				esp_err_to_name(ret));
+		ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
 	} else {
-		ESP_LOGD(TAG,
-				"SPIFFS init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-				(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-				heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+		ESP_LOGD(TAG, "SPIFFS init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+				xPortGetFreeHeapSize());
 		ESP_LOGD(TAG, "Partition size: total: %d, used: %d", total, used);
 	}
 }
@@ -389,10 +469,13 @@ void relayGPIO_init() {
 	gpio_set_direction(RELAY_1_GPIO, GPIO_MODE_OUTPUT);
 	gpio_set_direction(RELAY_2_GPIO, GPIO_MODE_OUTPUT);
 
-	ESP_LOGD(TAG,
-			"GPIO init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+	ESP_LOGD(TAG, "GPIO init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+			xPortGetFreeHeapSize());
+}
+
+int my_mega_fn(void) {
+
+	return 1;
 }
 
 void mdns_start(void) {
@@ -404,12 +487,10 @@ void mdns_start(void) {
 	if (strlen(monofon_config.device_name) == 0) {
 		sprintf(mdnsName, "%s", (char*) monofon_config.ssidT);
 		strcpy(mdnsName, monofon_config.ssidT);
-		ESP_LOGD(TAG, "Set mdns name: %s  device_name len:%d ", mdnsName,
-				strlen(monofon_config.device_name));
+		ESP_LOGD(TAG, "Set mdns name: %s  device_name len:%d ", mdnsName, strlen(monofon_config.device_name));
 	} else {
 		sprintf(mdnsName, "%s", monofon_config.device_name);
-		ESP_LOGD(TAG, "Set mdns name: %s  device_name len:%d ", mdnsName,
-				strlen(monofon_config.device_name));
+		ESP_LOGD(TAG, "Set mdns name: %s  device_name len:%d ", mdnsName, strlen(monofon_config.device_name));
 	}
 
 	ESP_ERROR_CHECK(mdns_init());
@@ -423,10 +504,8 @@ void mdns_start(void) {
 	//sprintf()
 	mdns_service_txt_set("_ftp", "_tcp", serviceTxtData, 1);
 
-	ESP_LOGD(TAG,
-			"mdns_start complite. Duration: %d ms. Heap usage: %d free heap:%d",
-			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+	ESP_LOGD(TAG, "mdns_start complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+			xPortGetFreeHeapSize());
 }
 
 void console_init() {
@@ -435,8 +514,7 @@ void console_init() {
 
 	esp_console_repl_t *repl = NULL;
 	esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
-	esp_console_dev_uart_config_t uart_config =
-	ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+	esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
 	/* Prompt to be printed before each line.
 	 * This can be customized, made dynamic, etc.
 	 */
@@ -444,15 +522,15 @@ void console_init() {
 	//repl_config.max_cmdline_length = 150;
 
 	esp_console_register_help_command();
-	ESP_ERROR_CHECK(
-			esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
+	ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
+
+	//esp_console_dev_usb_cdc_config_t cdc_config = ESP_CONSOLE_DEV_CDC_CONFIG_DEFAULT();
+	//ESP_ERROR_CHECK(esp_console_new_repl_usb_cdc(&cdc_config,&repl_config, &repl));
 
 	register_console_cmd();
 
-	ESP_LOGD(TAG,
-			"Console init complite. Duration: %d ms. Heap usage: %d free heap:%d",
-			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
-			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+	ESP_LOGD(TAG, "Console init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
+			xPortGetFreeHeapSize());
 	ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }
 
@@ -495,37 +573,44 @@ void setLogLevel(uint8_t level) {
 	esp_log_level_set("ST7789", level);
 	esp_log_level_set("JPED_Decoder", level);
 	esp_log_level_set("SENS", level);
+	esp_log_level_set("SDSPI", level);
 
 }
 
 void app_main(void) {
 	setLogLevel(4);
-	ESP_LOGD(TAG, "Start up");
-	ESP_LOGD(TAG, "free Heap size %d", xPortGetFreeHeapSize());
-
 	initLeds();
+	board_init();
 
+	spiffs_init();
 	nvs_init();
 
-	load_Default_Config();
+	st7789_init();
 
-	ESP_LOGD(TAG, "try init sdCard");
-	if (sd_card_init() != ESP_OK) {
+	ESP_LOGI(TAG, "try init sdCard");
+	//if (sd_card_init() != ESP_OK) {
+	if (spisd_init() != ESP_OK) {
+		lcdDrawString(&screen, fx32G, 25, 140, (uint8_t*) "SD card FAIL", RED);
+		ESP_LOGE(TAG, "spisd_init FAIL");
 		showState(LED_STATE_SD_ERROR);
 		monofon_state.sd_error = 1;
 		esp_restart();
 	} else {
-
+		//spisd_mount_fs();
 		monofon_state.sd_error = 0;
-
 		if (remove("/sdcard/error.txt")) {
 			ESP_LOGD(TAG, "/sdcard/error.txt delete failed");
 		}
+		setMscEnabled(1);
+		setMscEnabled(0);
+
+		load_Default_Config();
 		int res = loadConfig();
 		if (res == ESP_OK) {
 			monofon_state.config_error = 0;
 			setLogLevel(monofon_config.logLevel);
 		} else {
+			lcdDrawString(&screen, fx32G, 20, 140, (uint8_t*) "Load config FAIL", RED);
 			showState(LED_STATE_CONFIG_ERROR);
 			char tmpString[40];
 			sprintf(tmpString, "Load config FAIL in line: %d", res);
@@ -535,8 +620,13 @@ void app_main(void) {
 
 		if (loadContent() == ESP_OK) {
 			monofon_state.content_error = 0;
+
+			JPEGTest(&screen, monofon_config.introIco, 240, 240);
+
 		} else {
 			ESP_LOGD(TAG, "Load Content FAIL");
+			lcdFillScreen(&screen, BLACK);
+			lcdDrawString(&screen, fx32G, 15, 140,(uint8_t*) "Load content FAIL", RED);
 			showState(LED_STATE_CONTENT_ERROR);
 			writeErrorTxt("Load content FAIL");
 			monofon_state.content_error = 1;
@@ -544,15 +634,19 @@ void app_main(void) {
 
 		if (wifiInit() != ESP_OK) {
 			monofon_state.wifi_error = 1;
+			lcdFillScreen(&screen, BLACK);
+			lcdDrawString(&screen, fx32G, 100, 50, (uint8_t*) "WIFI connect FAIL", RED);
 			showState(LED_STATE_WIFI_FAIL);
 			wifi_scan();
 		} else {
+
 			if (monofon_config.WIFI_mode != 0) {
-				xTaskCreatePinnedToCore(ftp_task, "FTP", 1024 * 6, NULL, 2,
-						NULL, 0);
+
+				xTaskCreatePinnedToCore(ftp_task, "FTP", 1024 * 6, NULL, 2, NULL, 0);
+
 				vTaskDelay(pdMS_TO_TICKS(100));
 				mdns_start();
-
+				//mqtt_app_start();
 			}
 		}
 
@@ -565,12 +659,73 @@ void app_main(void) {
 	console_init();
 
 	vTaskDelay(pdMS_TO_TICKS(100));
-	ESP_LOGI(TAG, "Load complite, start working. free Heap size %d",
-			xPortGetFreeHeapSize());
+	ESP_LOGI(TAG, "Load complite, start working. free Heap size %d", xPortGetFreeHeapSize());
 
 	while (1) {
 
 		vTaskDelay(pdMS_TO_TICKS(100));
+		if (monofon_state.mqtt_error == 0) {
+			char tmpString[10];
+			sprintf(tmpString, "%d", pdTICKS_TO_MS(xTaskGetTickCount()) / 1000);
+			//mqtt_pub(lifeTime_topic,tmpString);
+		}
+		if (monofon_state.changeLang == 1) {
+			ESP_LOGI(TAG, "Change lang to:%d", monofon_state.currentLang);
+			//monofon_state.changeLang = 0;
+		}
 
+	}
+}
+
+/*
+ void app_main_2(void) {
+
+ board_init();
+
+ setLogLevel(4);
+ ESP_LOGD(TAG, "Start up");
+ ESP_LOGD(TAG, "free Heap size %d", xPortGetFreeHeapSize());
+
+ loadMscFlag();
+
+ if (isMscEnabled()) {
+ spisd_init();
+ spisd_mount_fs();
+
+ xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL,
+ configMAX_PRIORITIES - 1, usb_device_stack, &usb_device_taskdef);
+ xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL,
+ configMAX_PRIORITIES - 2, cdc_stack, &cdc_taskdef);
+
+ while (1) {
+ vTaskDelay(pdMS_TO_TICKS(100));
+ }
+ }
+ //else
+ //default_main_app();
+ }
+
+ */
+// USB Device Driver task
+// This top level thread process all usb events and invoke callbacks
+extern void reconnectUsb();
+
+void usb_device_task(void *param) {
+	(void) param;
+
+	// init device stack on configured roothub port
+	// This should be called after scheduler/kernel is started.
+	// Otherwise it could cause kernel issue since USB IRQ handler does use RTOS queue API.
+	tud_init(BOARD_TUD_RHPORT);
+
+	reconnectUsb();
+
+	// RTOS forever loop
+	while (1) {
+		// put this thread to waiting state until there is new events
+		tud_task();
+
+		// following code only run if tud_task() process at least 1 event
+		tud_cdc_write_flush();
 	}
 }

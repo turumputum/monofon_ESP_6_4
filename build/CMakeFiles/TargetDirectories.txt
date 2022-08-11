@@ -17,8 +17,11 @@ C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/dfu.
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/dfu-flash.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/uf2-app.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/uf2.dir
-C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/edit_cache.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/spiffs_storage_bin.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/rebuild_cache.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/storage-flash.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/encrypted-storage-flash.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/edit_cache.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/list_install_components.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/install/local.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/CMakeFiles/install.dir
@@ -897,3 +900,10 @@ C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/st7789/
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/st7789/CMakeFiles/rebuild_cache.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/st7789/CMakeFiles/list_install_components.dir
 C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/st7789/CMakeFiles/install/strip.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/__idf_tusb.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/install/local.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/install.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/edit_cache.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/rebuild_cache.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/list_install_components.dir
+C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/CMakeFiles/install/strip.dir

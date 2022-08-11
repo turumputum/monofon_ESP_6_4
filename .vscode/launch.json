@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "showDevDebugOutput" : "true",
+    "configurations":
+    [
+        // {
+        //     "name": "ESP32 OpenOce",
+        //     "type": "cppdbg",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}/build",
+        //     "program": "{workspaceFolder}/build/monofon_ESP_6_4.elf",
+        //     "miDebuggerPath": "${env:HOME}/opt/esp/tools/tools/xtensa-esp32s3-elf/esp-2021r2-patch3-8.4.0/xtensa-esp32s3-elf/bin/xtensa-esp32s3-elf-gdb xtensa-esp32s3-elf-gdb",
+        //     "setupCommands": [
+        //         { "text": "target remote 127.0.0.0:3333" },
+        //         { "text": "set remote hardware-watchpoint-limit 2" },
+        //         { "text": "monitor reset halt" },
+        //         { "text": "flushregs" },
+        //         { "text": "monitor reset halt" },
+
+        //     ]
+        // },
+        {
+            "name": "ftdi jtag",
+            "type": "cortex-debug",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "servertype": "openocd",
+            "executable": "build/${config:my_binary_name}.elf",
+            "svdFile": "${env:HOME}/x/arsenal/svd/Espressif/${config:my_svd_name}.svd",
+            //"preLaunchTask": "build debug",
+            "configFiles": [
+                "${env:HOME}/x/arsenal/openocd/esp32s3-esp-prog.cfg"
+            ],
+            "commands"
+        },
+    ]
+}

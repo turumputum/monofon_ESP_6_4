@@ -82,8 +82,8 @@ static int set_config(int argc, char **argv){
         monofon_config.defaultLang=atoi(value);
     }else if(strcmp(parameter, "sensMode")==0){
         monofon_config.sensMode=atoi(value);
-    }else if(strcmp(parameter, "sensInverted")==0){
-        monofon_config.sensInverted=atoi(value);
+    }else if(strcmp(parameter, "phoneSensInverted")==0){
+        monofon_config.phoneSensInverted=atoi(value);
     }else if(strcmp(parameter, "sensDebug")==0){
         monofon_config.sensDebug=atoi(value);
     }else{
@@ -135,7 +135,7 @@ int list_config(void){
 
     printf("\r\n");
     printf("sensMode:%d // 0-disable, 1-hall sensor mode, 2-button mode\r\n", monofon_config.sensMode);
-    printf("sensInverted:%d \r\n", monofon_config.sensInverted);
+    printf("phoneSensInverted:%d \r\n", monofon_config.phoneSensInverted);
     printf("sensDebug:%d \r\n", monofon_config.sensDebug);
 
     //saveConfig();
@@ -192,15 +192,13 @@ int status(void){
 
 }
 
-int resetConfig(void){
+void resetConfig(void){
     if (remove("/sdcard/config.ini")!=ESP_OK)
     {
          ESP_LOGD(TAG, "/sdcard/config.ini delete failed");
-
-
+         esp_restart();
+		//return ESP_FAIL;
     }
-    esp_restart();
-    return ESP_OK;
 }
 
 esp_console_cmd_t cmd_status={

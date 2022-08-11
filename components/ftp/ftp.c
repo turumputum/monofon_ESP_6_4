@@ -60,7 +60,6 @@
 
 //#include "freertos/semphr.h"
 
-
 #include "ftp.h"
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
@@ -70,13 +69,12 @@ extern EventGroupHandle_t xEventTask;
 
 extern configuration monofon_config;
 
-tcpip_adapter_if_t tcpip_if_ftp[MAX_ACTIVE_INTERFACES] = {TCPIP_ADAPTER_IF_MAX};
-
+tcpip_adapter_if_t tcpip_if_ftp[MAX_ACTIVE_INTERFACES] = { TCPIP_ADAPTER_IF_MAX };
 
 int ftp_buff_size = CONFIG_MICROPY_FTPSERVER_BUFFER_SIZE;
 int ftp_timeout = FTP_CMD_TIMEOUT_MS;
 const char *FTP_TAG = "[Ftp]";
-static const char* MOUNT_POINT = "/sdcard";
+static const char *MOUNT_POINT = "/sdcard";
 
 ftp_state_t ftp_state;
 
@@ -87,17 +85,14 @@ char ftp_pass[FTP_USER_PASS_LEN_MAX + 1];
 /******************************************************************************
  DECLARE PRIVATE DATA
  ******************************************************************************/
-static ftp_data_t ftp_data = {0};
+static ftp_data_t ftp_data = { 0 };
 static char *ftp_path = NULL;
-static char *ftp_scratch_buffer = NULL;;
+static char *ftp_scratch_buffer = NULL;
+;
 static char *ftp_cmd_buffer = NULL;
 static uint8_t ftp_nlist = 0;
-static const ftp_cmd_t ftp_cmd_table[] = { { "FEAT" }, { "SYST" }, { "CDUP" }, { "CWD"	},
-										   { "PWD"	}, { "XPWD" }, { "SIZE" }, { "MDTM" },
-										   { "TYPE" }, { "USER" }, { "PASS" }, { "PASV" },
-										   { "LIST" }, { "RETR" }, { "STOR" }, { "DELE" },
-										   { "RMD"	}, { "MKD"	}, { "RNFR" }, { "RNTO" },
-										   { "NOOP" }, { "QUIT" }, { "APPE" }, { "NLST" }, { "AUTH" } };
+static const ftp_cmd_t ftp_cmd_table[] = { { "FEAT" }, { "SYST" }, { "CDUP" }, { "CWD" }, { "PWD" }, { "XPWD" }, { "SIZE" }, { "MDTM" }, { "TYPE" }, { "USER" }, { "PASS" }, { "PASV" }, { "LIST" }, {
+		"RETR" }, { "STOR" }, { "DELE" }, { "RMD" }, { "MKD" }, { "RNFR" }, { "RNTO" }, { "NOOP" }, { "QUIT" }, { "APPE" }, { "NLST" }, { "AUTH" } };
 
 // ==== PRIVATE FUNCTIONS ===================================================
 
@@ -106,31 +101,28 @@ uint64_t mp_hal_ticks_ms() {
 	return time_ms;
 }
 
-int network_get_active_interfaces()
-{
+int network_get_active_interfaces() {
 	int n_if = 0;
 
-	for (int i=0; i<MAX_ACTIVE_INTERFACES; i++) {
+	for (int i = 0; i < MAX_ACTIVE_INTERFACES; i++) {
 		tcpip_if_ftp[i] = TCPIP_ADAPTER_IF_MAX;
 	}
 	//if ((wifi_network_state == WIFI_STATE_STARTED) && (wifi_is_started())) {
-		wifi_mode_t mode;
-		esp_err_t ret = esp_wifi_get_mode(&mode);
-		if (ret == ESP_OK) {
-			if (mode == WIFI_MODE_STA) {
-				n_if = 1;
-				tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_STA;
-			}
-			else if (mode == WIFI_MODE_AP) {
-				n_if = 1;
-				tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_AP;
-			}
-			else if (mode == WIFI_MODE_APSTA) {
-				n_if = 2;
-				tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_STA;
-				tcpip_if_ftp[1] = TCPIP_ADAPTER_IF_AP;
-			}
+	wifi_mode_t mode;
+	esp_err_t ret = esp_wifi_get_mode(&mode);
+	if (ret == ESP_OK) {
+		if (mode == WIFI_MODE_STA) {
+			n_if = 1;
+			tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_STA;
+		} else if (mode == WIFI_MODE_AP) {
+			n_if = 1;
+			tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_AP;
+		} else if (mode == WIFI_MODE_APSTA) {
+			n_if = 2;
+			tcpip_if_ftp[0] = TCPIP_ADAPTER_IF_STA;
+			tcpip_if_ftp[1] = TCPIP_ADAPTER_IF_AP;
 		}
+	}
 	//}
 
 #if 0
@@ -146,9 +138,9 @@ int network_get_active_interfaces()
 }
 
 //--------------------------------
-static void stoupper (char *str) {
+static void stoupper(char *str) {
 	while (str && *str != '\0') {
-		*str = (char)toupper((int)(*str));
+		*str = (char) toupper((int )(*str));
 		str++;
 	}
 }
@@ -156,7 +148,7 @@ static void stoupper (char *str) {
 // ==== File functions =========================================
 
 //--------------------------------------------------------------
-static bool ftp_open_file (const char *path, const char *mode) {
+static bool ftp_open_file(const char *path, const char *mode) {
 	ESP_LOGI(FTP_TAG, "ftp_open_file path=[%s]", path);
 	char fullname[128];
 	strcpy(fullname, MOUNT_POINT);
@@ -172,12 +164,11 @@ static bool ftp_open_file (const char *path, const char *mode) {
 }
 
 //--------------------------------------
-static void ftp_close_files_dir (void) {
+static void ftp_close_files_dir(void) {
 	if (ftp_data.e_open == E_FTP_FILE_OPEN) {
 		fclose(ftp_data.fp);
 		ftp_data.fp = NULL;
-	}
-	else if (ftp_data.e_open == E_FTP_DIR_OPEN) {
+	} else if (ftp_data.e_open == E_FTP_DIR_OPEN) {
 		closedir(ftp_data.dp);
 		ftp_data.dp = NULL;
 	}
@@ -185,7 +176,7 @@ static void ftp_close_files_dir (void) {
 }
 
 //------------------------------------------------
-static void ftp_close_filesystem_on_error (void) {
+static void ftp_close_filesystem_on_error(void) {
 	ftp_close_files_dir();
 	if (ftp_data.fp) {
 		fclose(ftp_data.fp);
@@ -198,7 +189,7 @@ static void ftp_close_filesystem_on_error (void) {
 }
 
 //---------------------------------------------------------------------------------------------
-static ftp_result_t ftp_read_file (char *filebuf, uint32_t desiredsize, uint32_t *actualsize) {
+static ftp_result_t ftp_read_file(char *filebuf, uint32_t desiredsize, uint32_t *actualsize) {
 	ftp_result_t result = E_FTP_RESULT_CONTINUE;
 	*actualsize = fread(filebuf, 1, desiredsize, ftp_data.fp);
 	if (*actualsize == 0) {
@@ -212,7 +203,7 @@ static ftp_result_t ftp_read_file (char *filebuf, uint32_t desiredsize, uint32_t
 }
 
 //-----------------------------------------------------------------
-static ftp_result_t ftp_write_file (char *filebuf, uint32_t size) {
+static ftp_result_t ftp_write_file(char *filebuf, uint32_t size) {
 	ftp_result_t result = E_FTP_RESULT_FAILED;
 	uint32_t actualsize = fwrite(filebuf, 1, size, ftp_data.fp);
 	if (actualsize == size) {
@@ -224,7 +215,7 @@ static ftp_result_t ftp_write_file (char *filebuf, uint32_t size) {
 }
 
 //---------------------------------------------------------------
-static ftp_result_t ftp_open_dir_for_listing (const char *path) {
+static ftp_result_t ftp_open_dir_for_listing(const char *path) {
 	if (ftp_data.dp) {
 		closedir(ftp_data.dp);
 		ftp_data.dp = NULL;
@@ -244,7 +235,7 @@ static ftp_result_t ftp_open_dir_for_listing (const char *path) {
 }
 
 //---------------------------------------------------------------------------------
-static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) {
+static int ftp_get_eplf_item(char *dest, uint32_t destsize, struct dirent *de) {
 
 	char *type = (de->d_type & DT_DIR) ? "d" : "-";
 
@@ -253,7 +244,8 @@ static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) 
 	strcpy(fullname, MOUNT_POINT);
 	strcat(fullname, ftp_path);
 	//strcpy(fullname, ftp_path);
-	if (fullname[strlen(fullname)-1] != '/') strcat(fullname, "/");
+	if (fullname[strlen(fullname) - 1] != '/')
+		strcat(fullname, "/");
 	strcat(fullname, de->d_name);
 
 	struct stat buf;
@@ -267,18 +259,23 @@ static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) 
 	char str_time[64];
 	struct tm *tm_info;
 	time_t now;
-	if (time(&now) < 0) now = 946684800;	// get the current time from the RTC
+	if (time(&now) < 0)
+		now = 946684800;	// get the current time from the RTC
 	tm_info = localtime(&buf.st_mtime);		// get broken-down file time
 
 	// if file is older than 180 days show dat,month,year else show month, day and time
-	if ((buf.st_mtime + FTP_UNIX_SECONDS_180_DAYS) < now) strftime(str_time, 127, "%b %d %Y", tm_info);
-	else strftime(str_time, 63, "%b %d %H:%M", tm_info);
+	if ((buf.st_mtime + FTP_UNIX_SECONDS_180_DAYS) < now)
+		strftime(str_time, 127, "%b %d %Y", tm_info);
+	else
+		strftime(str_time, 63, "%b %d %H:%M", tm_info);
 
 	int addsize = destsize + 64;
 
 	while (addsize >= destsize) {
-		if (ftp_nlist) addsize = snprintf(dest, destsize, "%s\r\n", de->d_name);
-		else addsize = snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, (uint32_t)buf.st_size, str_time, de->d_name);
+		if (ftp_nlist)
+			addsize = snprintf(dest, destsize, "%s\r\n", de->d_name);
+		else
+			addsize = snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, (uint32_t) buf.st_size, str_time, de->d_name);
 		if (addsize >= destsize) {
 			ESP_LOGW(FTP_TAG, "Buffer too small, reallocating [%d > %d]", ftp_buff_size, ftp_buff_size + (addsize - destsize) + 64);
 			char *new_dest = realloc(dest, ftp_buff_size + (addsize - destsize) + 65);
@@ -287,8 +284,7 @@ static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) 
 				destsize += (addsize - destsize) + 64;
 				dest = new_dest;
 				addsize = destsize + 64;
-			}
-			else {
+			} else {
 				ESP_LOGE(FTP_TAG, "Buffer reallocation ERROR");
 				addsize = 0;
 			}
@@ -326,8 +322,10 @@ static ftp_result_t ftp_list_dir(char *list, uint32_t maxlistsize, uint32_t *lis
 			result = E_FTP_RESULT_OK;
 			break;																			// Break on error or end of dp
 		}
-		if (de->d_name[0] == '.' && de->d_name[1] == 0) continue;							// Ignore . entry
-		if (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == 0) continue;	// Ignore .. entry
+		if (de->d_name[0] == '.' && de->d_name[1] == 0)
+			continue;							// Ignore . entry
+		if (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == 0)
+			continue;	// Ignore .. entry
 
 		// add the entry to the list
 		ESP_LOGI(FTP_TAG, "Add to dir list: %s", de->d_name);
@@ -347,9 +345,9 @@ static ftp_result_t ftp_list_dir(char *list, uint32_t maxlistsize, uint32_t *lis
 static void ftp_close_cmd_data(void) {
 	closesocket(ftp_data.c_sd);
 	closesocket(ftp_data.d_sd);
-	ftp_data.c_sd  = -1;
-	ftp_data.d_sd  = -1;
-	ftp_close_filesystem_on_error ();
+	ftp_data.c_sd = -1;
+	ftp_data.d_sd = -1;
+	ftp_close_filesystem_on_error();
 }
 
 //----------------------------
@@ -368,7 +366,7 @@ static void _ftp_reset(void) {
 }
 
 //-------------------------------------------------------------------------------------
-static bool ftp_create_listening_socket (int32_t *sd, uint32_t port, uint8_t backlog) {
+static bool ftp_create_listening_socket(int32_t *sd, uint32_t port, uint8_t backlog) {
 	struct sockaddr_in sServerAddress;
 	int32_t _sd;
 	int32_t result;
@@ -393,10 +391,10 @@ static bool ftp_create_listening_socket (int32_t *sd, uint32_t port, uint8_t bac
 		sServerAddress.sin_len = sizeof(sServerAddress);
 		sServerAddress.sin_port = htons(port);
 
-		result |= bind(_sd, (const struct sockaddr *)&sServerAddress, sizeof(sServerAddress));
+		result |= bind(_sd, (const struct sockaddr*) &sServerAddress, sizeof(sServerAddress));
 
 		// start listening
-		result |= listen (_sd, backlog);
+		result |= listen(_sd, backlog);
 
 		if (!result) {
 			return true;
@@ -407,12 +405,12 @@ static bool ftp_create_listening_socket (int32_t *sd, uint32_t port, uint8_t bac
 }
 
 //--------------------------------------------------------------------------------------------
-static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32_t *ip_addr) {
-	struct sockaddr_in	sClientAddress;
-	socklen_t  in_addrSize;
+static ftp_result_t ftp_wait_for_connection(int32_t l_sd, int32_t *n_sd, uint32_t *ip_addr) {
+	struct sockaddr_in sClientAddress;
+	socklen_t in_addrSize;
 
 	// accepts a connection from a TCP client, if there is any, otherwise returns EAGAIN
-	*n_sd = accept(l_sd, (struct sockaddr *)&sClientAddress, (socklen_t *)&in_addrSize);
+	*n_sd = accept(l_sd, (struct sockaddr*) &sClientAddress, (socklen_t*) &in_addrSize);
 	int32_t _sd = *n_sd;
 	if (_sd < 0) {
 		if (errno == EAGAIN) {
@@ -425,16 +423,16 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
 
 	if (ip_addr) {
 		// check on which network interface the client was connected and save the IP address
-		tcpip_adapter_ip_info_t ip_info = {0};
+		tcpip_adapter_ip_info_t ip_info = { 0 };
 		int n_if = network_get_active_interfaces();
 
 		if (n_if > 0) {
 			struct sockaddr_in clientAddr;
 			in_addrSize = sizeof(struct sockaddr_in);
-			getpeername(_sd, (struct sockaddr *)&clientAddr, (socklen_t *)&in_addrSize);
+			getpeername(_sd, (struct sockaddr*) &clientAddr, (socklen_t*) &in_addrSize);
 			ESP_LOGI(FTP_TAG, "Client IP: %08x", clientAddr.sin_addr.s_addr);
 			*ip_addr = 0;
-			for (int i=0; i<n_if; i++) {
+			for (int i = 0; i < n_if; i++) {
 				tcpip_adapter_get_ip_info(tcpip_if_ftp[i], &ip_info);
 				ESP_LOGI(FTP_TAG, "Adapter: %08x, %08x", ip_info.ip.addr, ip_info.netmask.addr);
 				if ((ip_info.ip.addr & ip_info.netmask.addr) == (ip_info.netmask.addr & clientAddr.sin_addr.s_addr)) {
@@ -446,15 +444,15 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
 			if (*ip_addr == 0) {
 				ESP_LOGE(FTP_TAG, "No IP address detected (?!)");
 			}
-		}
-		else {
+		} else {
 			ESP_LOGE(FTP_TAG, "No active interface (?!)");
 		}
 	}
 
 	// enable non-blocking mode if not data channel connection
 	uint32_t option = fcntl(_sd, F_GETFL, 0);
-	if (l_sd != ftp_data.ld_sd) option |= O_NONBLOCK;
+	if (l_sd != ftp_data.ld_sd)
+		option |= O_NONBLOCK;
 	fcntl(_sd, F_SETFL, option);
 
 	// client connected, so go on
@@ -462,18 +460,18 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
 }
 
 //-----------------------------------------------------------
-static void ftp_send_reply (uint32_t status, char *message) {
+static void ftp_send_reply(uint32_t status, char *message) {
 	if (!message) {
 		message = "";
 	}
-	snprintf((char *)ftp_cmd_buffer, 4, "%u", status);
-	strcat ((char *)ftp_cmd_buffer, " ");
-	strcat ((char *)ftp_cmd_buffer, message);
-	strcat ((char *)ftp_cmd_buffer, "\r\n");
+	snprintf((char*) ftp_cmd_buffer, 4, "%u", status);
+	strcat((char*) ftp_cmd_buffer, " ");
+	strcat((char*) ftp_cmd_buffer, message);
+	strcat((char*) ftp_cmd_buffer, "\r\n");
 
 	int32_t timeout = 200;
 	ftp_result_t result;
-	uint32_t size = strlen((char *)ftp_cmd_buffer);
+	uint32_t size = strlen((char*) ftp_cmd_buffer);
 
 	ESP_LOGI(FTP_TAG, "Send reply: [%s]", ftp_cmd_buffer);
 	//vTaskDelay(1);
@@ -489,8 +487,7 @@ static void ftp_send_reply (uint32_t status, char *message) {
 				closesocket(ftp_data.c_sd);
 				ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
 				ftp_close_filesystem_on_error();
-			}
-			else if (status == 426 || status == 451 || status == 550) {
+			} else if (status == 426 || status == 451 || status == 550) {
 				closesocket(ftp_data.d_sd);
 				ftp_data.d_sd = -1;
 				ftp_close_filesystem_on_error();
@@ -498,8 +495,7 @@ static void ftp_send_reply (uint32_t status, char *message) {
 			//vTaskDelay(1);
 			ESP_LOGI(FTP_TAG, "Send reply: OK (%u)", size);
 			break;
-		}
-		else {
+		} else {
 			//vTaskDelay(1);
 			if ((timeout <= 0) || (errno != EAGAIN)) {
 				// error
@@ -513,8 +509,7 @@ static void ftp_send_reply (uint32_t status, char *message) {
 }
 
 //------------------------------------------
-static void ftp_send_list(uint32_t datasize)
-{
+static void ftp_send_list(uint32_t datasize) {
 	int32_t timeout = 200;
 	ftp_result_t result;
 
@@ -527,8 +522,7 @@ static void ftp_send_list(uint32_t datasize)
 			vTaskDelay(1);
 			ESP_LOGI(FTP_TAG, "Send OK");
 			break;
-		}
-		else {
+		} else {
 			vTaskDelay(1);
 			if ((timeout <= 0) || (errno != EAGAIN)) {
 				// error
@@ -542,8 +536,7 @@ static void ftp_send_list(uint32_t datasize)
 }
 
 //-----------------------------------------------
-static void ftp_send_file_data(uint32_t datasize)
-{
+static void ftp_send_file_data(uint32_t datasize) {
 	ftp_result_t result;
 	uint32_t timeout = 200;
 
@@ -556,8 +549,7 @@ static void ftp_send_file_data(uint32_t datasize)
 			vTaskDelay(1);
 			ESP_LOGI(FTP_TAG, "Send OK");
 			break;
-		}
-		else {
+		} else {
 			vTaskDelay(1);
 			if ((timeout <= 0) || (errno != EAGAIN)) {
 				// error
@@ -571,13 +563,15 @@ static void ftp_send_file_data(uint32_t datasize)
 }
 
 //------------------------------------------------------------------------------------------------
-static ftp_result_t ftp_recv_non_blocking (int32_t sd, void *buff, int32_t Maxlen, int32_t *rxLen)
-{
-	if (sd < 0) return E_FTP_RESULT_FAILED;
+static ftp_result_t ftp_recv_non_blocking(int32_t sd, void *buff, int32_t Maxlen, int32_t *rxLen) {
+	if (sd < 0)
+		return E_FTP_RESULT_FAILED;
 
 	*rxLen = recv(sd, buff, Maxlen, 0);
-	if (*rxLen > 0) return E_FTP_RESULT_OK;
-	else if (errno != EAGAIN) return E_FTP_RESULT_FAILED;
+	if (*rxLen > 0)
+		return E_FTP_RESULT_OK;
+	else if (errno != EAGAIN)
+		return E_FTP_RESULT_FAILED;
 
 	return E_FTP_RESULT_CONTINUE;
 }
@@ -590,19 +584,20 @@ static void ftp_fix_path(char *pwd) {
 	uint len = strlen(pwd);
 
 	if (len == 0) {
-		strcpy (pwd, "/");
-	}
-	else if ((len > 1) && (pwd[len-1] == '/')) pwd[len-1] = '\0';
+		strcpy(pwd, "/");
+	} else if ((len > 1) && (pwd[len - 1] == '/'))
+		pwd[len - 1] = '\0';
 
 	// Convert to physical path
 	if (strstr(pwd, VFS_NATIVE_INTERNAL_MP) == pwd) {
-		sprintf(ph_path, "%s%s", VFS_NATIVE_MOUNT_POINT, pwd+strlen(VFS_NATIVE_INTERNAL_MP));
-		if (strcmp(ph_path, VFS_NATIVE_MOUNT_POINT) == 0) strcat(ph_path, "/");
+		sprintf(ph_path, "%s%s", VFS_NATIVE_MOUNT_POINT, pwd + strlen(VFS_NATIVE_INTERNAL_MP));
+		if (strcmp(ph_path, VFS_NATIVE_MOUNT_POINT) == 0)
+			strcat(ph_path, "/");
 		strcpy(pwd, ph_path);
-	}
-	else if (strstr(pwd, VFS_NATIVE_EXTERNAL_MP) == pwd) {
-		sprintf(ph_path, "%s%s", VFS_NATIVE_SDCARD_MOUNT_POINT, pwd+strlen(VFS_NATIVE_EXTERNAL_MP));
-		if (strcmp(ph_path, VFS_NATIVE_SDCARD_MOUNT_POINT) == 0) strcat(ph_path, "/");
+	} else if (strstr(pwd, VFS_NATIVE_EXTERNAL_MP) == pwd) {
+		sprintf(ph_path, "%s%s", VFS_NATIVE_SDCARD_MOUNT_POINT, pwd + strlen(VFS_NATIVE_EXTERNAL_MP));
+		if (strcmp(ph_path, VFS_NATIVE_SDCARD_MOUNT_POINT) == 0)
+			strcat(ph_path, "/");
 		strcpy(pwd, ph_path);
 	}
 }
@@ -616,17 +611,17 @@ static void ftp_fix_path(char *pwd) {
  * trailing '/' is required for flash&sd root entries (translated)
  */
 //-------------------------------------------------
-static void ftp_open_child (char *pwd, char *dir) {
+static void ftp_open_child(char *pwd, char *dir) {
 	ESP_LOGI(FTP_TAG, "open_child: %s + %s", pwd, dir);
 	if (strlen(dir) > 0) {
 		if (dir[0] == '/') {
 			// ** absolute path
 			strcpy(pwd, dir);
-		}
-		else {
+		} else {
 			// ** relative path
 			// add trailing '/' if needed
-			if ((strlen(pwd) > 1) && (pwd[strlen(pwd)-1] != '/') && (dir[0] != '/')) strcat(pwd, "/");
+			if ((strlen(pwd) > 1) && (pwd[strlen(pwd) - 1] != '/') && (dir[0] != '/'))
+				strcat(pwd, "/");
 			// append directory/file name
 			strcat(pwd, dir);
 		}
@@ -637,20 +632,19 @@ static void ftp_open_child (char *pwd, char *dir) {
 
 // Return to parent directory
 //---------------------------------------
-static void ftp_close_child (char *pwd) {
+static void ftp_close_child(char *pwd) {
 	ESP_LOGI(FTP_TAG, "close_child: %s", pwd);
 	uint len = strlen(pwd);
-	if (pwd[len-1] == '/') {
-		pwd[len-1] = '\0';
+	if (pwd[len - 1] == '/') {
+		pwd[len - 1] = '\0';
 		len--;
 		if ((len == 0) || (strcmp(pwd, VFS_NATIVE_MOUNT_POINT) == 0) || (strcmp(pwd, VFS_NATIVE_SDCARD_MOUNT_POINT) == 0)) {
 			strcpy(pwd, "/");
 		}
-	}
-	else {
+	} else {
 		while (len) {
-			if (pwd[len-1] == '/') {
-				pwd[len-1] = '\0';
+			if (pwd[len - 1] == '/') {
+				pwd[len - 1] = '\0';
 				len--;
 				break;
 			}
@@ -658,9 +652,8 @@ static void ftp_close_child (char *pwd) {
 		}
 
 		if (len == 0) {
-			strcpy (pwd, "/");
-		}
-		else if ((strcmp(pwd, VFS_NATIVE_MOUNT_POINT) == 0) || (strcmp(pwd, VFS_NATIVE_SDCARD_MOUNT_POINT) == 0)) {
+			strcpy(pwd, "/");
+		} else if ((strcmp(pwd, VFS_NATIVE_MOUNT_POINT) == 0) || (strcmp(pwd, VFS_NATIVE_SDCARD_MOUNT_POINT) == 0)) {
 			strcat(pwd, "/");
 		}
 	}
@@ -669,11 +662,13 @@ static void ftp_close_child (char *pwd) {
 
 // Remove file name from path
 //-----------------------------------------------------------
-static void remove_fname_from_path (char *pwd, char *fname) {
+static void remove_fname_from_path(char *pwd, char *fname) {
 	ESP_LOGI(FTP_TAG, "remove_fname_from_path: %s - %s", pwd, fname);
-	if (strlen(fname) == 0) return;
+	if (strlen(fname) == 0)
+		return;
 	char *xpwd = strstr(pwd, fname);
-	if (xpwd == NULL) return;
+	if (xpwd == NULL)
+		return;
 
 	xpwd[0] = '\0';
 
@@ -684,17 +679,17 @@ static void remove_fname_from_path (char *pwd, char *fname) {
 // ==== Param functions =================================================
 
 //------------------------------------------------------------------------------------------
-static void ftp_pop_param(char **str, char *param, bool stop_on_space, bool stop_on_newline)
-{
+static void ftp_pop_param(char **str, char *param, bool stop_on_space, bool stop_on_newline) {
 	char lastc = '\0';
 	while (**str != '\0') {
-		if (stop_on_space && (**str == ' ')) break;
+		if (stop_on_space && (**str == ' '))
+			break;
 		if ((**str == '\r') || (**str == '\n')) {
 			if (!stop_on_newline) {
 				(*str)++;
 				continue;
-			}
-			else break;
+			} else
+				break;
 		}
 		if ((**str == '/') && (lastc == '/')) {
 			(*str)++;
@@ -710,10 +705,10 @@ static void ftp_pop_param(char **str, char *param, bool stop_on_space, bool stop
 //--------------------------------------------------
 static ftp_cmd_index_t ftp_pop_command(char **str) {
 	char _cmd[FTP_CMD_SIZE_MAX];
-	ftp_pop_param (str, _cmd, true, true);
-	stoupper (_cmd);
+	ftp_pop_param(str, _cmd, true, true);
+	stoupper(_cmd);
 	for (ftp_cmd_index_t i = 0; i < E_FTP_NUM_FTP_CMDS; i++) {
-		if (!strcmp (_cmd, ftp_cmd_table[i].cmd)) {
+		if (!strcmp(_cmd, ftp_cmd_table[i].cmd)) {
 			// move one step further to skip the space
 			(*str)++;
 			return i;
@@ -733,9 +728,9 @@ static void ftp_get_param_and_open_child(char **bufptr) {
 // ==== Ftp command processing =====
 
 //----------------------------------
-static void ftp_process_cmd (void) {
+static void ftp_process_cmd(void) {
 	int32_t len;
-	char *bufptr = (char *)ftp_cmd_buffer;
+	char *bufptr = (char*) ftp_cmd_buffer;
 	ftp_result_t result;
 	struct stat buf;
 	int res;
@@ -749,15 +744,13 @@ static void ftp_process_cmd (void) {
 		ftp_cmd_buffer[len] = '\0';
 		// bufptr is moved as commands are being popped
 		ftp_cmd_index_t cmd = ftp_pop_command(&bufptr);
-		if (!ftp_data.loggin.passvalid &&
-				((cmd != E_FTP_CMD_USER) && (cmd != E_FTP_CMD_PASS) && (cmd != E_FTP_CMD_QUIT) && (cmd != E_FTP_CMD_FEAT) && (cmd != E_FTP_CMD_AUTH))) {
+		if (!ftp_data.loggin.passvalid && ((cmd != E_FTP_CMD_USER) && (cmd != E_FTP_CMD_PASS) && (cmd != E_FTP_CMD_QUIT) && (cmd != E_FTP_CMD_FEAT) && (cmd != E_FTP_CMD_AUTH))) {
 			ftp_send_reply(332, NULL);
 			return;
 		}
 		if ((cmd >= 0) && (cmd < E_FTP_NUM_FTP_CMDS)) {
 			ESP_LOGI(FTP_TAG, "CMD: %s", ftp_cmd_table[cmd].cmd);
-		}
-		else {
+		} else {
 			ESP_LOGI(FTP_TAG, "CMD: %d", cmd);
 		}
 		char fullname[128];
@@ -780,7 +773,7 @@ static void ftp_process_cmd (void) {
 			ftp_send_reply(250, NULL);
 			break;
 		case E_FTP_CMD_CWD:
-			ftp_pop_param (&bufptr, ftp_scratch_buffer, false, false);
+			ftp_pop_param(&bufptr, ftp_scratch_buffer, false, false);
 
 			if (strlen(ftp_scratch_buffer) > 0) {
 				if ((ftp_scratch_buffer[0] == '.') && (ftp_scratch_buffer[1] == '\0')) {
@@ -789,18 +782,17 @@ static void ftp_process_cmd (void) {
 					break;
 				}
 				if ((ftp_scratch_buffer[0] == '.') && (ftp_scratch_buffer[1] == '.') && (ftp_scratch_buffer[2] == '\0')) {
-					ftp_close_child (ftp_path);
+					ftp_close_child(ftp_path);
 					ftp_send_reply(250, NULL);
 					break;
-				}
-				else ftp_open_child (ftp_path, ftp_scratch_buffer);
+				} else
+					ftp_open_child(ftp_path, ftp_scratch_buffer);
 			}
 
 			if ((ftp_path[0] == '/') && (ftp_path[1] == '\0')) {
 				ftp_data.dp = NULL;
 				ftp_send_reply(250, NULL);
-			}
-			else {
+			} else {
 				strcat(fullname, ftp_path);
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_CWD fullname=[%s]", fullname);
 				//ftp_data.dp = opendir(ftp_path);
@@ -809,46 +801,42 @@ static void ftp_process_cmd (void) {
 					closedir(ftp_data.dp);
 					ftp_data.dp = NULL;
 					ftp_send_reply(250, NULL);
-				}
-				else {
-					ftp_close_child (ftp_path);
+				} else {
+					ftp_close_child(ftp_path);
 					ftp_send_reply(550, NULL);
 				}
 			}
 			break;
 		case E_FTP_CMD_PWD:
-		case E_FTP_CMD_XPWD:
-			{
-				char lpath[128];
-				if (strstr(ftp_path, VFS_NATIVE_MOUNT_POINT) == ftp_path) {
-					sprintf(lpath, "%s%s", VFS_NATIVE_INTERNAL_MP, ftp_path+strlen(VFS_NATIVE_MOUNT_POINT));
-				}
-				else if (strstr(ftp_path, VFS_NATIVE_SDCARD_MOUNT_POINT) == ftp_path) {
-					sprintf(lpath, "%s%s", VFS_NATIVE_EXTERNAL_MP, ftp_path+strlen(VFS_NATIVE_SDCARD_MOUNT_POINT));
-				}
-				else strcpy(lpath,ftp_path);
+		case E_FTP_CMD_XPWD: {
+			char lpath[128];
+			if (strstr(ftp_path, VFS_NATIVE_MOUNT_POINT) == ftp_path) {
+				sprintf(lpath, "%s%s", VFS_NATIVE_INTERNAL_MP, ftp_path + strlen(VFS_NATIVE_MOUNT_POINT));
+			} else if (strstr(ftp_path, VFS_NATIVE_SDCARD_MOUNT_POINT) == ftp_path) {
+				sprintf(lpath, "%s%s", VFS_NATIVE_EXTERNAL_MP, ftp_path + strlen(VFS_NATIVE_SDCARD_MOUNT_POINT));
+			} else
+				strcpy(lpath, ftp_path);
 
-				ftp_send_reply(257, lpath);
-			}
+			ftp_send_reply(257, lpath);
+		}
 			break;
-		case E_FTP_CMD_SIZE:
-			{
-				ftp_get_param_and_open_child (&bufptr);
-				strcat(fullname, ftp_path);
-				ESP_LOGI(FTP_TAG, "E_FTP_CMD_SIZE fullname=[%s]", fullname);
-				//int res = stat(ftp_path, &buf);
-				int res = stat(fullname, &buf);
-				if (res == 0) {
-					// send the file size
-					snprintf((char *)ftp_data.dBuffer, ftp_buff_size, "%u", (uint32_t)buf.st_size);
-					ftp_send_reply(213, (char *)ftp_data.dBuffer);
-				} else {
-					ftp_send_reply(550, NULL);
-				}
+		case E_FTP_CMD_SIZE: {
+			ftp_get_param_and_open_child(&bufptr);
+			strcat(fullname, ftp_path);
+			ESP_LOGI(FTP_TAG, "E_FTP_CMD_SIZE fullname=[%s]", fullname);
+			//int res = stat(ftp_path, &buf);
+			int res = stat(fullname, &buf);
+			if (res == 0) {
+				// send the file size
+				snprintf((char*) ftp_data.dBuffer, ftp_buff_size, "%u", (uint32_t) buf.st_size);
+				ftp_send_reply(213, (char*) ftp_data.dBuffer);
+			} else {
+				ftp_send_reply(550, NULL);
 			}
+		}
 			break;
 		case E_FTP_CMD_MDTM:
-			ftp_get_param_and_open_child (&bufptr);
+			ftp_get_param_and_open_child(&bufptr);
 			strcat(fullname, ftp_path);
 			ESP_LOGI(FTP_TAG, "E_FTP_CMD_MDTM fullname=[%s]", fullname);
 			//res = stat(ftp_path, &buf);
@@ -862,9 +850,9 @@ static void ftp_process_cmd (void) {
 				struct tm *ptm = localtime(&time);
 				//char buf[128];
 				//strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", ptm);
-				strftime((char *)ftp_data.dBuffer, ftp_buff_size, "%Y%m%d%H%M%S", ptm);
+				strftime((char*) ftp_data.dBuffer, ftp_buff_size, "%Y%m%d%H%M%S", ptm);
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_MDTM ftp_data.dBuffer=[%s]", ftp_data.dBuffer);
-				ftp_send_reply(213, (char *)ftp_data.dBuffer);
+				ftp_send_reply(213, (char*) ftp_data.dBuffer);
 			} else {
 				ftp_send_reply(550, NULL);
 			}
@@ -873,16 +861,15 @@ static void ftp_process_cmd (void) {
 			ftp_send_reply(200, NULL);
 			break;
 		case E_FTP_CMD_USER:
-			ftp_pop_param (&bufptr, ftp_scratch_buffer, true, true);
+			ftp_pop_param(&bufptr, ftp_scratch_buffer, true, true);
 			if (!memcmp(ftp_scratch_buffer, ftp_user, MAX(strlen(ftp_scratch_buffer), strlen(ftp_user)))) {
 				ftp_data.loggin.uservalid = true && (strlen(ftp_user) == strlen(ftp_scratch_buffer));
 			}
 			ftp_send_reply(331, NULL);
 			break;
 		case E_FTP_CMD_PASS:
-			ftp_pop_param (&bufptr, ftp_scratch_buffer, true, true);
-			if (!memcmp(ftp_scratch_buffer, ftp_pass, MAX(strlen(ftp_scratch_buffer), strlen(ftp_pass))) &&
-					ftp_data.loggin.uservalid) {
+			ftp_pop_param(&bufptr, ftp_scratch_buffer, true, true);
+			if (!memcmp(ftp_scratch_buffer, ftp_pass, MAX(strlen(ftp_scratch_buffer), strlen(ftp_pass))) && ftp_data.loggin.uservalid) {
 				ftp_data.loggin.passvalid = true && (strlen(ftp_pass) == strlen(ftp_scratch_buffer));
 				if (ftp_data.loggin.passvalid) {
 					ftp_send_reply(230, NULL);
@@ -891,58 +878,55 @@ static void ftp_process_cmd (void) {
 			}
 			ftp_send_reply(530, NULL);
 			break;
-		case E_FTP_CMD_PASV:
-			{
-				// some servers (e.g. google chrome) send PASV several times very quickly
-				closesocket(ftp_data.d_sd);
-				ftp_data.d_sd = -1;
-				ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
-				bool socketcreated = true;
-				if (ftp_data.ld_sd < 0) {
-					socketcreated = ftp_create_listening_socket(&ftp_data.ld_sd, FTP_PASIVE_DATA_PORT, FTP_DATA_CLIENTS_MAX - 1);
-				}
-				if (socketcreated) {
-					uint8_t *pip = (uint8_t *)&ftp_data.ip_addr;
-					ftp_data.dtimeout = 0;
-					snprintf((char *)ftp_data.dBuffer, ftp_buff_size, "(%u,%u,%u,%u,%u,%u)",
-							 pip[0], pip[1], pip[2], pip[3], (FTP_PASIVE_DATA_PORT >> 8), (FTP_PASIVE_DATA_PORT & 0xFF));
-					ftp_data.substate = E_FTP_STE_SUB_LISTEN_FOR_DATA;
-					ESP_LOGI(FTP_TAG, "Data socket created");
-					ftp_send_reply(227, (char *)ftp_data.dBuffer);
-				}
-				else {
-					ESP_LOGW(FTP_TAG, "Error creating data socket");
-					ftp_send_reply(425, NULL);
-				}
+		case E_FTP_CMD_PASV: {
+			// some servers (e.g. google chrome) send PASV several times very quickly
+			closesocket(ftp_data.d_sd);
+			ftp_data.d_sd = -1;
+			ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
+			bool socketcreated = true;
+			if (ftp_data.ld_sd < 0) {
+				socketcreated = ftp_create_listening_socket(&ftp_data.ld_sd, FTP_PASIVE_DATA_PORT, FTP_DATA_CLIENTS_MAX - 1);
 			}
+			if (socketcreated) {
+				uint8_t *pip = (uint8_t*) &ftp_data.ip_addr;
+				ftp_data.dtimeout = 0;
+				snprintf((char*) ftp_data.dBuffer, ftp_buff_size, "(%u,%u,%u,%u,%u,%u)", pip[0], pip[1], pip[2], pip[3], (FTP_PASIVE_DATA_PORT >> 8), (FTP_PASIVE_DATA_PORT & 0xFF));
+				ftp_data.substate = E_FTP_STE_SUB_LISTEN_FOR_DATA;
+				ESP_LOGI(FTP_TAG, "Data socket created");
+				ftp_send_reply(227, (char*) ftp_data.dBuffer);
+			} else {
+				ESP_LOGW(FTP_TAG, "Error creating data socket");
+				ftp_send_reply(425, NULL);
+			}
+		}
 			break;
 		case E_FTP_CMD_LIST:
 		case E_FTP_CMD_NLST:
 			ftp_get_param_and_open_child(&bufptr);
-			if (cmd == E_FTP_CMD_LIST) ftp_nlist = 0;
-			else ftp_nlist = 1;
+			if (cmd == E_FTP_CMD_LIST)
+				ftp_nlist = 0;
+			else
+				ftp_nlist = 1;
 			if (ftp_open_dir_for_listing(ftp_path) == E_FTP_RESULT_CONTINUE) {
 				ftp_data.state = E_FTP_STE_CONTINUE_LISTING;
 				ftp_send_reply(150, NULL);
-			}
-			else ftp_send_reply(550, NULL);
+			} else
+				ftp_send_reply(550, NULL);
 			break;
 		case E_FTP_CMD_RETR:
 			ftp_data.total = 0;
 			ftp_data.time = 0;
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				if (ftp_open_file(ftp_path, "rb")) {
 					ftp_data.state = E_FTP_STE_CONTINUE_FILE_TX;
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(150, NULL);
-				}
-				else {
+				} else {
 					ftp_data.state = E_FTP_STE_END_TRANSFER;
 					ftp_send_reply(550, NULL);
 				}
-			}
-			else {
+			} else {
 				ftp_data.state = E_FTP_STE_END_TRANSFER;
 				ftp_send_reply(550, NULL);
 			}
@@ -951,18 +935,16 @@ static void ftp_process_cmd (void) {
 			ftp_data.total = 0;
 			ftp_data.time = 0;
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				if (ftp_open_file(ftp_path, "ab")) {
 					ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(150, NULL);
-				}
-				else {
+				} else {
 					ftp_data.state = E_FTP_STE_END_TRANSFER;
 					ftp_send_reply(550, NULL);
 				}
-			}
-			else {
+			} else {
 				ftp_data.state = E_FTP_STE_END_TRANSFER;
 				ftp_send_reply(550, NULL);
 			}
@@ -971,26 +953,24 @@ static void ftp_process_cmd (void) {
 			ftp_data.total = 0;
 			ftp_data.time = 0;
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_STOR ftp_path=[%s]", ftp_path);
 				if (ftp_open_file(ftp_path, "wb")) {
 					ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(150, NULL);
-				}
-				else {
+				} else {
 					ftp_data.state = E_FTP_STE_END_TRANSFER;
 					ftp_send_reply(550, NULL);
 				}
-			}
-			else {
+			} else {
 				ftp_data.state = E_FTP_STE_END_TRANSFER;
 				ftp_send_reply(550, NULL);
 			}
 			break;
 		case E_FTP_CMD_DELE:
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_DELE ftp_path=[%s]", ftp_path);
 
 				strcat(fullname, ftp_path);
@@ -1000,14 +980,14 @@ static void ftp_process_cmd (void) {
 				if (unlink(fullname) == 0) {
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(250, NULL);
-				}
-				else ftp_send_reply(550, NULL);
-			}
-			else ftp_send_reply(250, NULL);
+				} else
+					ftp_send_reply(550, NULL);
+			} else
+				ftp_send_reply(250, NULL);
 			break;
 		case E_FTP_CMD_RMD:
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_RMD ftp_path=[%s]", ftp_path);
 
 				strcat(fullname, ftp_path);
@@ -1017,14 +997,14 @@ static void ftp_process_cmd (void) {
 				if (rmdir(fullname) == 0) {
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(250, NULL);
-				}
-				else ftp_send_reply(550, NULL);
-			}
-			else ftp_send_reply(250, NULL);
+				} else
+					ftp_send_reply(550, NULL);
+			} else
+				ftp_send_reply(250, NULL);
 			break;
 		case E_FTP_CMD_MKD:
 			ftp_get_param_and_open_child(&bufptr);
-			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+			if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path) - 1] != '/')) {
 				ESP_LOGI(FTP_TAG, "E_FTP_CMD_MKD ftp_path=[%s]", ftp_path);
 
 				strcat(fullname, ftp_path);
@@ -1034,10 +1014,10 @@ static void ftp_process_cmd (void) {
 				if (mkdir(fullname, 0755) == 0) {
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(250, NULL);
-				}
-				else ftp_send_reply(550, NULL);
-			}
-			else ftp_send_reply(250, NULL);
+				} else
+					ftp_send_reply(550, NULL);
+			} else
+				ftp_send_reply(250, NULL);
 			break;
 		case E_FTP_CMD_RNFR:
 			ftp_get_param_and_open_child(&bufptr);
@@ -1051,7 +1031,7 @@ static void ftp_process_cmd (void) {
 			if (res == 0) {
 				ftp_send_reply(350, NULL);
 				// save the path of the file to rename
-				strcpy((char *)ftp_data.dBuffer, ftp_path);
+				strcpy((char*) ftp_data.dBuffer, ftp_path);
 			} else {
 				ftp_send_reply(550, NULL);
 			}
@@ -1059,8 +1039,8 @@ static void ftp_process_cmd (void) {
 		case E_FTP_CMD_RNTO:
 			ftp_get_param_and_open_child(&bufptr);
 			// the path of the file to rename was saved in the data buffer
-			ESP_LOGI(FTP_TAG, "E_FTP_CMD_RNTO ftp_path=[%s], ftp_data.dBuffer=[%s]", ftp_path, (char *)ftp_data.dBuffer);
-			strcat(fullname, (char *)ftp_data.dBuffer);
+			ESP_LOGI(FTP_TAG, "E_FTP_CMD_RNTO ftp_path=[%s], ftp_data.dBuffer=[%s]", ftp_path, (char* )ftp_data.dBuffer);
+			strcat(fullname, (char*) ftp_data.dBuffer);
 			ESP_LOGI(FTP_TAG, "E_FTP_CMD_RNTO fullname=[%s]", fullname);
 			strcat(fullname2, ftp_path);
 			ESP_LOGI(FTP_TAG, "E_FTP_CMD_RNTO fullname2=[%s]", fullname2);
@@ -1087,21 +1067,19 @@ static void ftp_process_cmd (void) {
 		if (ftp_data.closechild) {
 			remove_fname_from_path(ftp_path, ftp_scratch_buffer);
 		}
-	}
-	else if (result == E_FTP_RESULT_CONTINUE) {
+	} else if (result == E_FTP_RESULT_CONTINUE) {
 		//ESP_LOGI(FTP_TAG, "time to timeout %d", ftp_data.ctimeout);
 		if (ftp_data.ctimeout > ftp_timeout) {
 			ftp_send_reply(221, NULL);
 			ESP_LOGI(FTP_TAG, "Connection timeout");
 		}
-	}
-	else {
+	} else {
 		ftp_close_cmd_data();
 	}
 }
 
 //---------------------------------------
-static void ftp_wait_for_enabled (void) {
+static void ftp_wait_for_enabled(void) {
 	// Check if the telnet service has been enabled
 	if (ftp_data.enabled) {
 		ftp_data.state = E_FTP_STE_START;
@@ -1112,10 +1090,14 @@ static void ftp_wait_for_enabled (void) {
 
 //---------------------
 void ftp_deinit(void) {
-	if (ftp_path) free(ftp_path);
-	if (ftp_cmd_buffer) free(ftp_cmd_buffer);
-	if (ftp_data.dBuffer) free(ftp_data.dBuffer);
-	if (ftp_scratch_buffer) free(ftp_scratch_buffer);
+	if (ftp_path)
+		free(ftp_path);
+	if (ftp_cmd_buffer)
+		free(ftp_cmd_buffer);
+	if (ftp_data.dBuffer)
+		free(ftp_data.dBuffer);
+	if (ftp_scratch_buffer)
+		free(ftp_scratch_buffer);
 	ftp_path = NULL;
 	ftp_cmd_buffer = NULL;
 	ftp_data.dBuffer = NULL;
@@ -1129,8 +1111,9 @@ bool ftp_init(void) {
 	ftp_deinit();
 
 	memset(&ftp_data, 0, sizeof(ftp_data_t));
-	ftp_data.dBuffer = malloc(ftp_buff_size+1);
-	if (ftp_data.dBuffer == NULL) return false;
+	ftp_data.dBuffer = malloc(ftp_buff_size + 1);
+	if (ftp_data.dBuffer == NULL)
+		return false;
 	ftp_path = malloc(FTP_MAX_PARAM_SIZE);
 	if (ftp_path == NULL) {
 		free(ftp_data.dBuffer);
@@ -1152,8 +1135,8 @@ bool ftp_init(void) {
 
 	//SOCKETFIFO_Init((void *)ftp_fifoelements, FTP_SOCKETFIFO_ELEMENTS_MAX);
 
-	ftp_data.c_sd  = -1;
-	ftp_data.d_sd  = -1;
+	ftp_data.c_sd = -1;
+	ftp_data.d_sd = -1;
 	ftp_data.lc_sd = -1;
 	ftp_data.ld_sd = -1;
 	ftp_data.e_open = E_FTP_NOTHING_OPEN;
@@ -1165,131 +1148,127 @@ bool ftp_init(void) {
 }
 
 //============================
-int ftp_run (uint32_t elapsed)
-{
+int ftp_run(uint32_t elapsed) {
 	//if (xSemaphoreTake(ftp_mutex, FTP_MUTEX_TIMEOUT_MS / portTICK_PERIOD_MS) !=pdTRUE) return -1;
-	if (ftp_stop) return -2;
+	if (ftp_stop)
+		return -2;
 
 	ftp_data.dtimeout += elapsed;
 	ftp_data.ctimeout += elapsed;
 	ftp_data.time += elapsed;
 
 	switch (ftp_data.state) {
-		case E_FTP_STE_DISABLED:
-			ftp_wait_for_enabled();
-			break;
-		case E_FTP_STE_START:
-			if (ftp_create_listening_socket(&ftp_data.lc_sd, FTP_CMD_PORT, FTP_CMD_CLIENTS_MAX - 1)) {
-				ftp_data.state = E_FTP_STE_READY;
-			}
-			break;
-		case E_FTP_STE_READY:
-			if (ftp_data.c_sd < 0 && ftp_data.substate == E_FTP_STE_SUB_DISCONNECTED) {
-				if (E_FTP_RESULT_OK == ftp_wait_for_connection(ftp_data.lc_sd, &ftp_data.c_sd, &ftp_data.ip_addr)) {
-					ftp_data.txRetries = 0;
-					ftp_data.logginRetries = 0;
-					ftp_data.ctimeout = 0;
-					ftp_data.loggin.uservalid = false;
-					ftp_data.loggin.passvalid = false;
-					strcpy (ftp_path, "/");
-					ESP_LOGI(FTP_TAG, "Connected.");
-					ftp_send_reply (220, "Micropython FTP Server");
-					break;
-				}
-			}
-			if (ftp_data.c_sd > 0 && ftp_data.substate != E_FTP_STE_SUB_LISTEN_FOR_DATA) {
-				ftp_process_cmd();
-				if (ftp_data.state != E_FTP_STE_READY) {
-					break;
-				}
-			}
-			break;
-		case E_FTP_STE_END_TRANSFER:
-			if (ftp_data.d_sd >= 0) {
-				closesocket(ftp_data.d_sd);
-				ftp_data.d_sd = -1;
-			}
-			break;
-		case E_FTP_STE_CONTINUE_LISTING:
-			// go on with listing
-			{
-				uint32_t listsize = 0;
-				ftp_result_t list_res = ftp_list_dir((char *)ftp_data.dBuffer, ftp_buff_size, &listsize);
-				if (listsize > 0) ftp_send_list(listsize);
-				if (list_res == E_FTP_RESULT_OK) {
-					ftp_send_reply(226, NULL);
-					ftp_data.state = E_FTP_STE_END_TRANSFER;
-				}
+	case E_FTP_STE_DISABLED:
+		ftp_wait_for_enabled();
+		break;
+	case E_FTP_STE_START:
+		if (ftp_create_listening_socket(&ftp_data.lc_sd, FTP_CMD_PORT, FTP_CMD_CLIENTS_MAX - 1)) {
+			ftp_data.state = E_FTP_STE_READY;
+		}
+		break;
+	case E_FTP_STE_READY:
+		if (ftp_data.c_sd < 0 && ftp_data.substate == E_FTP_STE_SUB_DISCONNECTED) {
+			if (E_FTP_RESULT_OK == ftp_wait_for_connection(ftp_data.lc_sd, &ftp_data.c_sd, &ftp_data.ip_addr)) {
+				ftp_data.txRetries = 0;
+				ftp_data.logginRetries = 0;
 				ftp_data.ctimeout = 0;
+				ftp_data.loggin.uservalid = false;
+				ftp_data.loggin.passvalid = false;
+				strcpy(ftp_path, "/");
+				ESP_LOGI(FTP_TAG, "Connected.");
+				ftp_send_reply(220, "Micropython FTP Server");
+				break;
 			}
-			break;
-		case E_FTP_STE_CONTINUE_FILE_TX:
-			// read and send the next block from the file
-			{
-				uint32_t readsize;
-				ftp_result_t result;
-				ftp_data.ctimeout = 0;
-				result = ftp_read_file ((char *)ftp_data.dBuffer, ftp_buff_size, &readsize);
-				if (result == E_FTP_RESULT_FAILED) {
-					ftp_send_reply(451, NULL);
-					ftp_data.state = E_FTP_STE_END_TRANSFER;
-				}
-				else {
-					if (readsize > 0) {
-						ftp_send_file_data(readsize);
-						ftp_data.total += readsize;
-						ESP_LOGI(FTP_TAG, "Sent %u, total: %u", readsize, ftp_data.total);
-					}
-					if (result == E_FTP_RESULT_OK) {
-						ftp_send_reply(226, NULL);
-						ftp_data.state = E_FTP_STE_END_TRANSFER;
-						ESP_LOGI(FTP_TAG, "File sent (%u bytes in %u msek).", ftp_data.total, ftp_data.time);
-					}
-				}
+		}
+		if (ftp_data.c_sd > 0 && ftp_data.substate != E_FTP_STE_SUB_LISTEN_FOR_DATA) {
+			ftp_process_cmd();
+			if (ftp_data.state != E_FTP_STE_READY) {
+				break;
 			}
-			break;
-		case E_FTP_STE_CONTINUE_FILE_RX:
-			{
-				int32_t len;
-				ftp_result_t result = E_FTP_RESULT_OK;
+		}
+		break;
+	case E_FTP_STE_END_TRANSFER:
+		if (ftp_data.d_sd >= 0) {
+			closesocket(ftp_data.d_sd);
+			ftp_data.d_sd = -1;
+		}
+		break;
+	case E_FTP_STE_CONTINUE_LISTING:
+		// go on with listing
+	{
+		uint32_t listsize = 0;
+		ftp_result_t list_res = ftp_list_dir((char*) ftp_data.dBuffer, ftp_buff_size, &listsize);
+		if (listsize > 0)
+			ftp_send_list(listsize);
+		if (list_res == E_FTP_RESULT_OK) {
+			ftp_send_reply(226, NULL);
+			ftp_data.state = E_FTP_STE_END_TRANSFER;
+		}
+		ftp_data.ctimeout = 0;
+	}
+		break;
+	case E_FTP_STE_CONTINUE_FILE_TX:
+		// read and send the next block from the file
+	{
+		uint32_t readsize;
+		ftp_result_t result;
+		ftp_data.ctimeout = 0;
+		result = ftp_read_file((char*) ftp_data.dBuffer, ftp_buff_size, &readsize);
+		if (result == E_FTP_RESULT_FAILED) {
+			ftp_send_reply(451, NULL);
+			ftp_data.state = E_FTP_STE_END_TRANSFER;
+		} else {
+			if (readsize > 0) {
+				ftp_send_file_data(readsize);
+				ftp_data.total += readsize;
+				ESP_LOGI(FTP_TAG, "Sent %u, total: %u", readsize, ftp_data.total);
+			}
+			if (result == E_FTP_RESULT_OK) {
+				ftp_send_reply(226, NULL);
+				ftp_data.state = E_FTP_STE_END_TRANSFER;
+				ESP_LOGI(FTP_TAG, "File sent (%u bytes in %u msek).", ftp_data.total, ftp_data.time);
+			}
+		}
+	}
+		break;
+	case E_FTP_STE_CONTINUE_FILE_RX: {
+		int32_t len;
+		ftp_result_t result = E_FTP_RESULT_OK;
 
-				result = ftp_recv_non_blocking(ftp_data.d_sd, ftp_data.dBuffer, ftp_buff_size, &len);
-				if (result == E_FTP_RESULT_OK) {
-					// block of data received
-					ftp_data.dtimeout = 0;
-					ftp_data.ctimeout = 0;
-					// save received data to file
-					if (E_FTP_RESULT_OK != ftp_write_file ((char *)ftp_data.dBuffer, len)) {
-						ftp_send_reply(451, NULL);
-						ftp_data.state = E_FTP_STE_END_TRANSFER;
-						ESP_LOGW(FTP_TAG, "Error writing to file");
-					}
-					else {
-						ftp_data.total += len;
-						ESP_LOGI(FTP_TAG, "Received %u, total: %u", len, ftp_data.total);
-					}
-				}
-				else if (result == E_FTP_RESULT_CONTINUE) {
-					// nothing received
-					if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
-						ftp_close_files_dir();
-						ftp_send_reply(426, NULL);
-						ftp_data.state = E_FTP_STE_END_TRANSFER;
-						ESP_LOGW(FTP_TAG, "Receiving to file timeout");
-					}
-				}
-				else {
-					// File received (E_FTP_RESULT_FAILED)
-					ftp_close_files_dir();
-					ftp_send_reply(226, NULL);
-					ftp_data.state = E_FTP_STE_END_TRANSFER;
-					ESP_LOGI(FTP_TAG, "File received (%u bytes in %u msek).", ftp_data.total, ftp_data.time);
-					break;
-				}
+		result = ftp_recv_non_blocking(ftp_data.d_sd, ftp_data.dBuffer, ftp_buff_size, &len);
+		if (result == E_FTP_RESULT_OK) {
+			// block of data received
+			ftp_data.dtimeout = 0;
+			ftp_data.ctimeout = 0;
+			// save received data to file
+			if (E_FTP_RESULT_OK != ftp_write_file((char*) ftp_data.dBuffer, len)) {
+				ftp_send_reply(451, NULL);
+				ftp_data.state = E_FTP_STE_END_TRANSFER;
+				ESP_LOGW(FTP_TAG, "Error writing to file");
+			} else {
+				ftp_data.total += len;
+				ESP_LOGI(FTP_TAG, "Received %u, total: %u", len, ftp_data.total);
 			}
+		} else if (result == E_FTP_RESULT_CONTINUE) {
+			// nothing received
+			if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
+				ftp_close_files_dir();
+				ftp_send_reply(426, NULL);
+				ftp_data.state = E_FTP_STE_END_TRANSFER;
+				ESP_LOGW(FTP_TAG, "Receiving to file timeout");
+			}
+		} else {
+			// File received (E_FTP_RESULT_FAILED)
+			ftp_close_files_dir();
+			ftp_send_reply(226, NULL);
+			ftp_data.state = E_FTP_STE_END_TRANSFER;
+			ESP_LOGI(FTP_TAG, "File received (%u bytes in %u msek).", ftp_data.total, ftp_data.time);
 			break;
-		default:
-			break;
+		}
+	}
+		break;
+	default:
+		break;
 	}
 
 	switch (ftp_data.substate) {
@@ -1300,8 +1279,7 @@ int ftp_run (uint32_t elapsed)
 			ftp_data.dtimeout = 0;
 			ftp_data.substate = E_FTP_STE_SUB_DATA_CONNECTED;
 			ESP_LOGI(FTP_TAG, "Data socket connected");
-		}
-		else if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
+		} else if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
 			ESP_LOGW(FTP_TAG, "Waiting for data connection timeout (%d)", ftp_data.dtimeout);
 			ftp_data.dtimeout = 0;
 			// close the listening socket
@@ -1317,7 +1295,7 @@ int ftp_run (uint32_t elapsed)
 			closesocket(ftp_data.d_sd);
 			ftp_data.ld_sd = -1;
 			ftp_data.d_sd = -1;
-			ftp_close_filesystem_on_error ();
+			ftp_close_filesystem_on_error();
 			ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
 			ESP_LOGW(FTP_TAG, "Data connection timeout");
 		}
@@ -1338,7 +1316,7 @@ int ftp_run (uint32_t elapsed)
 }
 
 //----------------------
-bool ftp_enable (void) {
+bool ftp_enable(void) {
 	bool res = false;
 	if (ftp_data.state == E_FTP_STE_DISABLED) {
 		ftp_data.enabled = true;
@@ -1348,13 +1326,13 @@ bool ftp_enable (void) {
 }
 
 //-------------------------
-bool ftp_isenabled (void) {
+bool ftp_isenabled(void) {
 	bool res = (ftp_data.enabled == true);
 	return res;
 }
 
 //-----------------------
-bool ftp_disable (void) {
+bool ftp_disable(void) {
 	bool res = false;
 	if (ftp_data.state == E_FTP_STE_READY) {
 		_ftp_reset();
@@ -1366,7 +1344,7 @@ bool ftp_disable (void) {
 }
 
 //---------------------
-bool ftp_reset (void) {
+bool ftp_reset(void) {
 	_ftp_reset();
 	return true;
 }
@@ -1375,12 +1353,13 @@ bool ftp_reset (void) {
 //------------------
 int ftp_getstate() {
 	int fstate = ftp_data.state | (ftp_data.substate << 8);
-	if ((ftp_data.state == E_FTP_STE_READY) && (ftp_data.c_sd > 0)) fstate = E_FTP_STE_CONNECTED;
+	if ((ftp_data.state == E_FTP_STE_READY) && (ftp_data.c_sd > 0))
+		fstate = E_FTP_STE_CONNECTED;
 	return fstate;
 }
 
 //-------------------------
-bool ftp_terminate (void) {
+bool ftp_terminate(void) {
 	bool res = false;
 	if (ftp_data.state == E_FTP_STE_READY) {
 		ftp_stop = 1;
@@ -1405,11 +1384,10 @@ int32_t ftp_get_maxstack (void) {
 #endif
 
 //-------------------------------
-void ftp_task (void *pvParameters)
-{
+void ftp_task(void *pvParameters) {
 
 	uint32_t startTick = xTaskGetTickCount();
-    uint32_t heapBefore = xPortGetFreeHeapSize();
+	uint32_t heapBefore = xPortGetFreeHeapSize();
 
 	strcpy(ftp_user, monofon_config.FTP_login);
 	strcpy(ftp_pass, monofon_config.FTP_pass);
@@ -1425,7 +1403,6 @@ void ftp_task (void *pvParameters)
 
 	// We have network connection, enable ftp
 	ftp_enable();
-
 
 	time_ms = mp_hal_ticks_ms();
 
@@ -1444,23 +1421,24 @@ void ftp_task (void *pvParameters)
 			break;
 		}
 
-		if(ftp_state!=ftp_getstate()){
-			if(ftp_state==E_FTP_STE_CONNECTED){
-				if(ftp_getstate()==E_FTP_STE_READY){
-				ESP_LOGI(FTP_TAG, "FTP connection terminated. RESET");
-				esp_restart();
+		if (ftp_state != ftp_getstate()) {
+			if (ftp_state == E_FTP_STE_CONNECTED) {
+				if (ftp_getstate() == E_FTP_STE_READY) {
+					ESP_LOGI(FTP_TAG, "FTP connection terminated. RESET");
+					esp_wifi_stop();
+					esp_wifi_deinit();
+					esp_restart();
 				}
 			}
-			ftp_state=ftp_getstate();
+			ftp_state = ftp_getstate();
 		}
-
-		
 
 		vTaskDelay(1);
 
 	} // end while
 
-	ESP_LOGW("[Ftp]", "\nTask terminated!");
-	xEventGroupSetBits(xEventTask, FTP_TASK_FINISH_BIT);
+	//xEventGroupSetBits(xEventTask, FTP_TASK_FINISH_BIT);
 	vTaskDelete(NULL);
+	ESP_LOGW("[Ftp]", "\nTask terminated!");
+
 }

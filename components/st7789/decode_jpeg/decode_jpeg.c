@@ -4,6 +4,7 @@
 #include "esp_log.h"
 
 #define TAG "JPED_Decoder"
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 //Data that is passed from the decoder function to the infunc/outfunc functions.
 typedef struct {
@@ -17,13 +18,13 @@ typedef struct {
 //Input function for jpeg decoder. Just returns bytes from the inData field of the JpegDev structure.
 static UINT infunc(JDEC *decoder, BYTE *buf, UINT len) {
 	JpegDev *jd = (JpegDev *) decoder->device;
-	ESP_LOGD(TAG, "infunc len=%d fp=%p", len, jd->fp);
+	//ESP_LOGD(TAG, "infunc len=%d fp=%p", len, jd->fp);
 	int rlen;
 	if (buf != NULL) { /* Read nd bytes from the input strem */
 		rlen = fread(buf, 1, len, jd->fp);
-		ESP_LOGD(TAG, "rlen=%d",rlen);
+		//ESP_LOGD(TAG, "rlen=%d",rlen);
 	} else { /* Skip nd bytes on the input stream */
-		ESP_LOGD(TAG, "buff is NULL");
+		//ESP_LOGD(TAG, "buff is NULL");
 		fseek(jd->fp, len, SEEK_CUR);
 		rlen = len;
 	}
@@ -37,9 +38,9 @@ static UINT infunc(JDEC *decoder, BYTE *buf, UINT len) {
 static UINT outfunc(JDEC *decoder, void *bitmap, JRECT *rect) {
 	JpegDev *jd = (JpegDev *) decoder->device;
 	uint8_t *in = (uint8_t *) bitmap;
-	ESP_LOGD(TAG, "rect->top=%d rect->bottom=%d", rect->top, rect->bottom);
-	ESP_LOGD(TAG, "rect->left=%d rect->right=%d", rect->left, rect->right);
-	ESP_LOGD(TAG, "jd->screenWidth=%d jd->screenHeight=%d", jd->screenWidth, jd->screenHeight);
+	//ESP_LOGD(TAG, "rect->top=%d rect->bottom=%d", rect->top, rect->bottom);
+	//ESP_LOGD(TAG, "rect->left=%d rect->right=%d", rect->left, rect->right);
+	//ESP_LOGD(TAG, "jd->screenWidth=%d jd->screenHeight=%d", jd->screenWidth, jd->screenHeight);
 
 	for (int y = rect->top; y <= rect->bottom; y++) {
 		for (int x = rect->left; x <= rect->right; x++) {

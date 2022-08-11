@@ -12,6 +12,7 @@ typedef enum {
     LED_STATE_STANDBY,
     LED_STATE_PLAY,
     LED_STATE_FTP_SESSION,
+	LED_STATE_MSD_WORK,
 } led_state_t;
 
 typedef struct {
@@ -78,7 +79,8 @@ typedef struct {
 	langs_t lang[3];
 	uint8_t defaultLang;
 
-	uint8_t sensInverted;
+	uint8_t touchSensInverted;
+	uint8_t phoneSensInverted;
 
 	uint8_t sensMode;
 	uint8_t sensDebug;

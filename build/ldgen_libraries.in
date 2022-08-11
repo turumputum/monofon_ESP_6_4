@@ -101,3 +101,4 @@ $<TARGET_FILE:__idf_audioPlayer>
 $<TARGET_FILE:__idf_ftp>
 $<TARGET_FILE:__idf_myMqtt>
 $<TARGET_FILE:__idf_st7789>
+$<TARGET_FILE:__idf_tusb>

@@ -1,0 +1,34 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+
+    "my_binary_name": "monofon_ESP_6_4",
+    "my_build_toolchain" : "esp32s3",
+    "my_build_chip" : "ESP32SX",
+    "my_svd_name":  "esp32s3",
+
+    "cortex-debug.gdbPath": "${env:HOME}/opt/esp/tools/tools/xtensa-esp32s3-elf/esp-2021r2-patch3-8.4.0/xtensa-esp32s3-elf/bin/xtensa-esp32s3-elf-gdb",
+    "cortex-debug.openocdPath.linux": "${env:HOME}/opt/esp/tools/tools/openocd-esp32/v0.11.0-esp32-20211220/openocd-esp32/bin/openocd",
+
+    "terminal.integrated.env.linux": {
+        "PATH": "${env:PATH}:"
+    },
+
+    "makefile.configurations": [
+        {
+            "name": "Default",
+            "makeArgs": [
+                "-C",
+                "build",
+                "app",
+                "--no-print-directory",
+                "-f", 
+                "../Makefile.env",
+                "-f", 
+                "Makefile",
+//                "VERBOSE=1",
+            ]
+        }
+    ],
+    "idf.adapterTargetName": "esp32s3",
+    "idf.flashType": "JTAG"
+}

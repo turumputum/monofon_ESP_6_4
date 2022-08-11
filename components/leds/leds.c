@@ -125,7 +125,7 @@ HsvColor RgbToHsv(RgbColor rgb) {
 
 void initLeds() {
 	uint32_t startTick = xTaskGetTickCount();
-		uint32_t heapBefore = xPortGetFreeHeapSize();
+	uint32_t heapBefore = xPortGetFreeHeapSize();
 
 	RGB.r = monofon_config.RGB.r;
 	RGB.g = monofon_config.RGB.g;
@@ -137,20 +137,21 @@ void initLeds() {
 
 	//rmt_config_t config = RMT_DEFAULT_CONFIG_TX(12, RMT_TX_CHANNEL);
 	rmt_config_t config = RMT_DEFAULT_CONFIG_TX(8, RMT_TX_CHANNEL);
-    // set counter clock to 40MHz
-    config.clk_div = 2;
+	// set counter clock to 40MHz
+	config.clk_div = 2;
 	config.mem_block_num = 8;
-    ESP_ERROR_CHECK(rmt_config(&config));
-    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+	ESP_ERROR_CHECK(rmt_config(&config));
+	ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
 
-    // install ws2812 driver
-    led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(LED_COUNT, (led_strip_dev_t)config.channel);
-    strip = led_strip_new_rmt_ws2812(&strip_config);
-    if (!strip) {
-        ESP_LOGE(TAG, "install WS2812 driver failed");
-    }
-    // Clear LED strip (turn off all LEDs)
-    ESP_ERROR_CHECK(strip->clear(strip, 24));
+	// install ws2812 driver
+	led_strip_config_t strip_config =
+	LED_STRIP_DEFAULT_CONFIG(LED_COUNT, (led_strip_dev_t)config.channel);
+	strip = led_strip_new_rmt_ws2812(&strip_config);
+	if (!strip) {
+		ESP_LOGE(TAG, "install WS2812 driver failed");
+	}
+	// Clear LED strip (turn off all LEDs)
+	ESP_ERROR_CHECK(strip->clear(strip, 24));
 
 	for (int t = 0; t < LED_COUNT; t++) {
 		float val = sin((float) (6.28 / LED_COUNT) * (float) t);
@@ -158,14 +159,19 @@ void initLeds() {
 			front[t] = val;
 		}
 	}
-	ESP_LOGD(TAG, "SD_card init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
+	ESP_LOGD(TAG,
+			"SD_card init complite. Duration: %d ms. Heap usage: %d free heap:%d",
+			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
+			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
 
 }
 
 void refreshLeds() {
 
 	uint32_t startTick = xTaskGetTickCount();
-    uint32_t heapBefore = xPortGetFreeHeapSize();
+	uint32_t heapBefore = xPortGetFreeHeapSize();
+
+	uint8_t increment = 5;
 
 	if (monofon_config.rainbow == 1) {
 		if (HSV.h < 255) {
@@ -184,11 +190,11 @@ void refreshLeds() {
 	if (monofon_state.phoneUp) {
 		if (monofon_config.animate == 1) {
 			for (int i = 0; i < LED_COUNT; i++) {
-				strip->set_pixel(strip, i, (float)RGB.r * front[i],(float)RGB.g * front[i], (float)RGB.b * front[i]);
+				strip->set_pixel(strip, i, (float) RGB.r * front[i],
+						(float) RGB.g * front[i], (float) RGB.b * front[i]);
 
 			}
 			strip->refresh(strip, 1);
-
 
 			//shift front
 			float tmp = front[0];
@@ -197,35 +203,42 @@ void refreshLeds() {
 			}
 			front[LED_COUNT - 1] = tmp;
 		} else {
-			if(currentBright<monofon_config.brightMin){
-				currentBright++;
-			}else if (currentBright>monofon_config.brightMin){
-				currentBright--;
+			if (currentBright < monofon_config.brightMin) {
+				currentBright += increment;
+			} else if (currentBright > monofon_config.brightMin) {
+				currentBright -= increment;
 			}
-			float tmpBright = ((float)currentBright/255);
+			if (abs(monofon_config.brightMin - currentBright) < increment) {
+				currentBright = monofon_config.brightMin;
+			}
+			float tmpBright = ((float) currentBright / 255);
 			for (int i = 0; i < LED_COUNT; i++) {
 
-				strip->set_pixel(strip, i, RGB.r * tmpBright,RGB.g * tmpBright, RGB.b * tmpBright);
+				strip->set_pixel(strip, i, RGB.r * tmpBright, RGB.g * tmpBright,
+						RGB.b * tmpBright);
 			}
 
 			strip->refresh(strip, 1);
 		}
 
 	} else {
-		if(currentBright<monofon_config.brightMax){
-						currentBright++;
-					}else if (currentBright>monofon_config.brightMax){
-						currentBright--;
-					}
-		float tmpBright = ((float)currentBright/255);
+		if (currentBright < monofon_config.brightMax) {
+			currentBright += increment;
+		} else if (currentBright > monofon_config.brightMax) {
+			currentBright -= increment;
+		}
+		if (abs(monofon_config.brightMax - currentBright) < increment) {
+			currentBright = monofon_config.brightMax;
+		}
+		float tmpBright = ((float) currentBright / 255);
 		for (int i = 0; i < LED_COUNT; i++) {
-			strip->set_pixel(strip, i, RGB.r * tmpBright,RGB.g * tmpBright, RGB.b * tmpBright);
+			strip->set_pixel(strip, i, RGB.r * tmpBright, RGB.g * tmpBright,
+					RGB.b * tmpBright);
 			//ws2812_setPixel_gammaCorrection(RGB.r * tmpBright,RGB.g * tmpBright, RGB.b * tmpBright, i);
 		}
 		//ws2812_light();
-		
+
 		strip->refresh(strip, 1);
-		
 
 	}
 
@@ -233,41 +246,43 @@ void refreshLeds() {
 
 }
 
-void showState(int ledS){
+void showState(int ledS) {
 	HSV.s = 255;
 	HSV.v = 255;
-	if(ledS==LED_STATE_SD_ERROR){
-		HSV.h = 0;//red
-	}else if(ledS==LED_STATE_CONFIG_ERROR){
-		HSV.h = 32;//orange
-	}else if(ledS==LED_STATE_CONTENT_ERROR){
-		HSV.h = 64;//yellow
-	}else if(ledS==LED_STATE_SENSOR_ERROR){
-		HSV.h = 192;//purple
-	}else if(ledS==LED_STATE_WIFI_FAIL){
-		HSV.h = 224;//pink
+	if (ledS == LED_STATE_SD_ERROR) {
+		HSV.h = 0; //red
+	} else if (ledS == LED_STATE_CONFIG_ERROR) {
+		HSV.h = 32; //orange
+	} else if (ledS == LED_STATE_CONTENT_ERROR) {
+		HSV.h = 64; //yellow
+	} else if (ledS == LED_STATE_SENSOR_ERROR) {
+		HSV.h = 192; //purple
+	} else if (ledS == LED_STATE_WIFI_FAIL) {
+		HSV.h = 224; //pink
+	} else if (ledS == LED_STATE_MSD_WORK) {
+		HSV.h = 120; //green
 	}
 
 	RGB = HsvToRgb(HSV);
 
-	for(int i=0; i<LED_COUNT; i++){
-		for(int y=0; y<LED_COUNT; y++){
-			if(i>=y){
-				strip->set_pixel(strip, y, RGB.r,RGB.g,RGB.b);
-			}else{
-				strip->set_pixel(strip, y, 0,0,0);
+	for (int i = 0; i < LED_COUNT; i++) {
+		for (int y = 0; y < LED_COUNT; y++) {
+			if (i >= y) {
+				strip->set_pixel(strip, y, RGB.r, RGB.g, RGB.b);
+			} else {
+				strip->set_pixel(strip, y, 0, 0, 0);
 			}
 		}
 		strip->refresh(strip, 100);
 		vTaskDelay(pdMS_TO_TICKS(30));
 	}
 
-	for(int i=0; i<LED_COUNT; i++){
-		for(int y=0; y<LED_COUNT; y++){
-			if(i<y){
-				strip->set_pixel(strip, y, RGB.r,RGB.g,RGB.b);
-			}else{
-				strip->set_pixel(strip, y, 0,0,0);
+	for (int i = 0; i < LED_COUNT; i++) {
+		for (int y = 0; y < LED_COUNT; y++) {
+			if (i < y) {
+				strip->set_pixel(strip, y, RGB.r, RGB.g, RGB.b);
+			} else {
+				strip->set_pixel(strip, y, 0, 0, 0);
 			}
 		}
 		strip->refresh(strip, 100);

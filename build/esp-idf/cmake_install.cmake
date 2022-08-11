@@ -154,6 +154,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/ftp/cmake_install.cmake")
   include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/myMqtt/cmake_install.cmake")
   include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/st7789/cmake_install.cmake")
+  include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/tusb/cmake_install.cmake")
 
 endif()
 

@@ -6,7 +6,7 @@
     "config_defaults":    "",
     "app_elf":            "bootloader.elf",
     "app_bin":            "bootloader.bin",
-    "git_revision":       "v4.4",
+    "git_revision":       "v4.4-dirty",
     "target":             "esp32s3",
     "rev":                "",
     "phy_data_partition": "",

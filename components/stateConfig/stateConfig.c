@@ -48,8 +48,8 @@ static int handler(void *user, const char *section, const char *name, const char
 		pconfig->playerMode = atoi(value);
 	} else if (MATCH("sound", "defaultLang")) {
 		pconfig->defaultLang = atoi(value);
-	} else if (MATCH("sens", "sensInverted")) {
-		pconfig->sensInverted = atoi(value);
+	} else if (MATCH("sens", "phoneSensInverted")) {
+		pconfig->phoneSensInverted = atoi(value);
 	} else if (MATCH("sens", "sensDebug")) {
 		pconfig->sensDebug = atoi(value);
 	} else if (MATCH("sens", "sensMode")) {
@@ -112,7 +112,7 @@ void load_Default_Config(void) {
 
 	monofon_config.device_name = strdup("");
 
-	monofon_config.WIFI_mode = 1; // softAp
+	monofon_config.WIFI_mode = 0; // softAp
 
 	monofon_config.WIFI_ssid = strdup("");
 	monofon_config.WIFI_pass = strdup("monofonpass");
@@ -144,7 +144,7 @@ void load_Default_Config(void) {
 	monofon_config.volume = 60;
 
 	monofon_config.sensMode = 1; //hall sensor
-	monofon_config.sensInverted = 0;
+	monofon_config.phoneSensInverted = 0;
 	monofon_config.sensDebug = 0;
 
 	monofon_state.numOfLang = 0;
@@ -202,7 +202,7 @@ uint8_t loadConfig(void) {
 	ESP_LOGD(TAG, "[lang]");
 	ESP_LOGD(TAG, "monofon_config.defaultLang = %d", monofon_config.defaultLang);
 	ESP_LOGD(TAG, "[sens]");
-	ESP_LOGD(TAG, "monofon_config.sensInverted = %d", monofon_config.sensInverted);
+	ESP_LOGD(TAG, "monofon_config.phoneSensInverted = %d", monofon_config.phoneSensInverted);
 	ESP_LOGD(TAG, "monofon_config.sensDebug = %d", monofon_config.sensDebug);
 
 }
@@ -321,7 +321,7 @@ int saveConfig(void) {
 	sprintf(tmp, "sensMode = %d ; 0-disable, 1-hall sensor mode, 2-button mode, 3-multilanguage mode \r\n", monofon_config.sensMode);
 	fprintf(configFile, tmp);
 	memset(tmp, 0, strlen(tmp));
-	sprintf(tmp, "sensInverted = %d \r\n", monofon_config.sensInverted);
+	sprintf(tmp, "phoneSensInverted = %d \r\n", monofon_config.phoneSensInverted);
 	fprintf(configFile, tmp);
 	memset(tmp, 0, strlen(tmp));
 	sprintf(tmp, "sensDebug = %d \r\n", monofon_config.sensDebug);
@@ -374,8 +374,6 @@ FRESULT scan_in_dir(const char *file_extension, FF_DIR *dp, FILINFO *fno) {
 	return -1;
 }
 
-
-
 void search_introIcon(const char *path) {
 	FRESULT res;
 	FF_DIR dir;
@@ -383,7 +381,7 @@ void search_introIcon(const char *path) {
 
 	res = f_opendir(&dir, path);
 	if (res == FR_OK) {
-		res = scan_in_dir((const char* ) { "bmp" }, &dir, &fno);
+		res = scan_in_dir((const char* ) { "jpg" }, &dir, &fno);
 		if (res == FR_OK && fno.fname[0]) {
 			sprintf(monofon_config.introIco, "/sdcard/%s", fno.fname);
 			ESP_LOGI(TAG, "found intro image file: %s", monofon_config.introIco);
@@ -408,9 +406,9 @@ uint8_t search_contenInDir(const char *path) {
 		if (res == FR_OK) {
 
 			memset(monofon_config.lang[monofon_state.numOfLang].audioFile, 0, 255);
-			if(strcmp(path,"/")==0){
+			if (strcmp(path, "/") == 0) {
 				sprintf(monofon_config.lang[monofon_state.numOfLang].audioFile, "/sdcard/%s", fno.fname);
-			}else{
+			} else {
 				sprintf(monofon_config.lang[monofon_state.numOfLang].audioFile, "/sdcard/%s/%s", path, fno.fname);
 			}
 
@@ -421,13 +419,13 @@ uint8_t search_contenInDir(const char *path) {
 
 	res = f_opendir(&dir, path);
 	if (res == FR_OK) {
-		res = scan_in_dir((const char* ) { "bmp" }, &dir, &fno);
+		res = scan_in_dir((const char* ) { "jpg" }, &dir, &fno);
 		if (res == FR_OK) {
 
 			memset(monofon_config.lang[monofon_state.numOfLang].icoFile, 0, 255);
-			if(strcmp(path,"/")==0){
+			if (strcmp(path, "/") == 0) {
 				sprintf(monofon_config.lang[monofon_state.numOfLang].icoFile, "/sdcard/%s", fno.fname);
-			}else{
+			} else {
 				sprintf(monofon_config.lang[monofon_state.numOfLang].icoFile, "/sdcard/%s/%s", path, fno.fname);
 			}
 

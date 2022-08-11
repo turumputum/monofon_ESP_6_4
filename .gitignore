@@ -1,0 +1,11 @@
+lib
+.metadata
+.recommenders
+.local
+.build
+build
+*.tgz
+*.S2X
+*.log
+.*.json
+core

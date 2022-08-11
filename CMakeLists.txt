@@ -7,3 +7,6 @@ include($ENV{ADF_PATH}/CMakeLists.txt)
 get_filename_component(ProjectId ${CMAKE_CURRENT_LIST_DIR} NAME)
 string(REPLACE " " "_" ProjectId ${ProjectId})
 project(${ProjectId})
+spiffs_create_partition_image(storage font FLASH_IN_PROJECT)
+
+

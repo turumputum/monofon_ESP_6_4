@@ -1,0 +1,60 @@
+{
+    "version": "2.0.0",
+    "command": "bash",
+    "options": {
+        "cwd": "${workspaceRoot}"
+    },
+        "args": [
+        "-c"
+    ],
+    "tasks": [
+        {
+            "label": "build debug",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-C",
+                "build",
+                "app",
+                "--no-print-directory",
+                "-f", 
+                "../Makefile.env",
+                "-f", 
+                "Makefile",
+            ],
+        },
+        {
+            "label": "build release",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-C",
+                "build",
+                "app",
+                "--no-print-directory",
+                "-f", 
+                "../Makefile.env",
+                "-f", 
+                "Makefile",
+            ],
+        },
+        {
+            "label": "Terminate All Tasks",
+            "command": "echo ${input:terminate}",
+            "type": "shell",
+             "problemMatcher": []
+        },
+        {
+            "label": "run debug",
+            "type": "shell",
+            "command": "sbin/3_flash.sh",
+            "args": [
+                "",
+            ],
+            "dependsOn": [
+                "build debug"
+            ],
+        }
+    ]
+}
+

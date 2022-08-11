@@ -187,7 +187,7 @@ void delayMS(int ms) {
 }
 
 void lcdInit(TFT_t *dev, int width, int height, int offsetx, int offsety) {
-	grayScaleBuff = (uint8_t*) malloc(sizeof(uint8_t) * 240 * 240);
+	//grayScaleBuff = (uint8_t*) malloc(sizeof(uint8_t) * 240 * 240);
 	//grayScaleBuff = (uint8_t*)heap_caps_malloc(sizeof(uint8_t) * 240 * 240, MALLOC_CAP_SPIRAM);
 
 	dev->_width = width;
@@ -861,51 +861,6 @@ int lcdDrawCode(TFT_t *dev, FontxFile *fx, uint16_t x, uint16_t y, uint8_t code,
 	return 0;
 }
 
-#if 0
-// Draw UTF8 character
-// x:X coordinate
-// y:Y coordinate
-// utf8: UTF8 code
-// color:color
-int lcdDrawUTF8Char(TFT_t * dev, FontxFile *fx, uint16_t x,uint16_t y,uint8_t *utf8,uint16_t color) {
-	uint16_t sjis[1];
-
-	sjis[0] = UTF2SJIS(utf8);
-	if(_DEBUG_)printf("sjis=%04x\n",sjis[0]);
-	return lcdDrawSJISChar(dev, fx, x, y, sjis[0], color);
-}
-
-// Draw UTF8 string
-// x:X coordinate
-// y:Y coordinate
-// utfs: UTF8 string
-// color:color
-int lcdDrawUTF8String(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, unsigned char *utfs, uint16_t color) {
-
-	int i;
-	int spos;
-	uint16_t sjis[64];
-	spos = String2SJIS(utfs, strlen((char *)utfs), sjis, 64);
-	if(_DEBUG_)printf("spos=%d\n",spos);
-	for(i=0;i<spos;i++) {
-		if(_DEBUG_)printf("sjis[%d]=%x y=%d\n",i,sjis[i],y);
-		if (dev->_font_direction == 0)
-			x = lcdDrawSJISChar(dev, fx, x, y, sjis[i], color);
-		if (dev->_font_direction == 1)
-			y = lcdDrawSJISChar(dev, fx, x, y, sjis[i], color);
-		if (dev->_font_direction == 2)
-			x = lcdDrawSJISChar(dev, fx, x, y, sjis[i], color);
-		if (dev->_font_direction == 3)
-			y = lcdDrawSJISChar(dev, fx, x, y, sjis[i], color);
-	}
-	if (dev->_font_direction == 0) return x;
-	if (dev->_font_direction == 2) return x;
-	if (dev->_font_direction == 1) return y;
-	if (dev->_font_direction == 3) return y;
-	return 0;
-}
-#endif
-
 // Set font direction
 // dir:Direction
 void lcdSetFontDirection(TFT_t *dev, uint16_t dir) {
@@ -936,20 +891,6 @@ void lcdUnsetFontUnderLine(TFT_t *dev) {
 	dev->_font_underline = false;
 }
 
-// Backlight OFF
-void lcdBacklightOff(TFT_t *dev) {
-	if (dev->_bl >= 0) {
-		gpio_set_level(dev->_bl, 0);
-	}
-}
-
-// Backlight ON
-void lcdBacklightOn(TFT_t *dev) {
-	if (dev->_bl >= 0) {
-		gpio_set_level(dev->_bl, 1);
-	}
-}
-
 // Display Inversion Off
 void lcdInversionOff(TFT_t *dev) {
 	spi_master_write_command(dev, 0x20);	//Display Inversion Off
@@ -959,6 +900,7 @@ void lcdInversionOff(TFT_t *dev) {
 void lcdInversionOn(TFT_t *dev) {
 	spi_master_write_command(dev, 0x21);	//Display Inversion On
 }
+
 
 void BMP_showPic(TFT_t *dev) {
 	uint16_t *colors = (uint16_t*) malloc(sizeof(uint16_t) * 240);
@@ -1034,7 +976,7 @@ uint8_t BMP_cashPic(char *file, int width, int height) {
 	ret = fread(&result->dib.nimpcolors, 4, 1, fp);
 	assert(ret == 1);
 
-	if ((result->dib.depth == 24) && (result->dib.compress_type == 0)) {
+	if ((result->dib.depth == 8) && (result->dib.compress_type == 0)) {
 		// BMP rows are padded (if needed) to 4-byte boundary
 		uint32_t rowSize = (result->dib.width * 3 + 3) & ~3;
 		//int w = result->dib.width;
@@ -1071,8 +1013,8 @@ uint8_t BMP_cashPic(char *file, int width, int height) {
 		}
 		ESP_LOGD(__FUNCTION__, "_y=%d _rows=%d _rowe=%d", _y, _rows, _rowe);
 
-#define BUFFPIXEL 240
-		uint8_t sdbuffer[3 * BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
+		#define BUFFPIXEL 240
+		uint8_t sdbuffer[BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
 
 		for (int row = 0; row < h; row++) { // For each scanline...
 			if (row < _rows || row > _rowe)
@@ -1097,7 +1039,7 @@ uint8_t BMP_cashPic(char *file, int width, int height) {
 				// Convert pixel from BMP to TFT format, push to display
 				//uint8_t b = sdbuffer[buffidx++];
 				//uint8_t g = sdbuffer[buffidx++];
-				buffidx += 2;
+				//buffidx += 2;
 				uint8_t r = sdbuffer[buffidx++];
 				grayScaleBuff[240 * row + col] = r;
 			} // end for col
@@ -1113,6 +1055,7 @@ uint8_t BMP_cashPic(char *file, int width, int height) {
 	ESP_LOGI(__FUNCTION__, "elapsed time[ms]:%d", diffTick*portTICK_PERIOD_MS);
 	return 0;
 }
+
 
 void JPEGTest(TFT_t *dev, char *file, int width, int height) {
 	TickType_t startTick, endTick, diffTick;
@@ -1145,17 +1088,6 @@ void JPEGTest(TFT_t *dev, char *file, int width, int height) {
 		ESP_LOGD(TAG, "_height=%d _rows=%d", _height, _rows);
 		uint16_t *colors = (uint16_t*) malloc(sizeof(uint16_t) * _width);
 
-#if 0
-		for(int y = 0; y < _height; y++){
-			for(int x = 0;x < _width; x++){
-				pixel_jpeg pixel = pixels[y][x];
-				uint16_t color = rgb565_conv(pixel.red, pixel.green, pixel.blue);
-				lcdDrawPixel(dev, x+_cols, y+_rows, color);
-			}
-			vTaskDelay(1);
-		}
-#endif
-
 		for (int y = 0; y < _height; y++) {
 			for (int x = 0; x < _width; x++) {
 				//pixel_jpeg pixel = pixels[y][x];
@@ -1176,3 +1108,5 @@ void JPEGTest(TFT_t *dev, char *file, int width, int height) {
 	diffTick = endTick - startTick;
 	ESP_LOGI(TAG, "elapsed time[ms]:%d heap usage:%d free heap:%d", diffTick*portTICK_PERIOD_MS, heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
 }
+
+

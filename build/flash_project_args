@@ -2,3 +2,4 @@
 0x0 bootloader/bootloader.bin
 0x10000 IDE_Monofon_6-4.bin
 0x8000 partition_table/partition-table.bin
+0x410000 storage.bin
