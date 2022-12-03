@@ -112,8 +112,8 @@ stateStruct monofon_state;
 
 uint32_t ADC_AVERAGE;
 
-#define RELAY_1_GPIO (47)
-#define RELAY_2_GPIO (48)
+#define RELAY_1_GPIO GPIO_NUM_47
+#define RELAY_2_GPIO GPIO_NUM_48
 
 void listenListener(void *pvParameters);
 
@@ -166,6 +166,7 @@ static void sensTask(void *arg) {
 	gpio_reset_pin(TOUCH_SENS_PIN);
 	gpio_set_direction(TOUCH_SENS_PIN, GPIO_MODE_INPUT);
 	uint8_t prevSens_state, sens_state;
+	int sens_tick;
 
 	adc1_config_width(width);
 	adc1_config_channel_atten(ADC_chan_1, atten);
@@ -208,7 +209,24 @@ static void sensTask(void *arg) {
 			ledTick = 0;
 			refreshLeds();
 
-			sens_state = gpio_get_level(TOUCH_SENS_PIN);
+			if (gpio_get_level(TOUCH_SENS_PIN)) {
+				sens_tick++;
+				if (sens_tick > 7) {
+					sens_tick = 7;
+				}
+			} else {
+				sens_tick--;
+				if (sens_tick <= 0) {
+					sens_tick = 0;
+				}
+			}
+
+			if (sens_tick > 3) {
+				sens_state = 1;
+			} else {
+				sens_state = 0;
+			}
+
 			if (sens_state != prevSens_state) {
 				if ((sens_state) && (monofon_state.phoneUp == 1)) {
 					monofon_state.changeLang = 1;
@@ -216,6 +234,7 @@ static void sensTask(void *arg) {
 				}
 				prevSens_state = sens_state;
 			}
+
 		}
 
 		if (tick > 3000) {
@@ -330,7 +349,6 @@ static void playerTask(void *arg) {
 				}
 				audioStop();
 
-
 				if (monofon_config.lang[monofon_state.currentLang].icoFile[0] != 0) {
 					JPEGTest(&screen, monofon_config.lang[monofon_state.currentLang].icoFile, 240, 240);
 					nextImageNum = monofon_state.currentLang + 1;
@@ -430,7 +448,7 @@ void st7789_init() {
 
 	spi_master_init(&screen, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO,
 	CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO);
-	lcdInit(&screen, CONFIG_WIDTH, CONFIG_HEIGHT, 0, 0);
+	lcdInit(&screen, CONFIG_WIDTH, CONFIG_HEIGHT, 80, 0);
 
 	InitFontx(fx32G, "/spiffs/ILGH32XB.FNT", ""); // 16x32Dot Gothic
 
@@ -464,10 +482,31 @@ void relayGPIO_init() {
 	uint32_t startTick = xTaskGetTickCount();
 	uint32_t heapBefore = xPortGetFreeHeapSize();
 
-	gpio_reset_pin(RELAY_1_GPIO);
-	gpio_reset_pin(RELAY_2_GPIO);
-	gpio_set_direction(RELAY_1_GPIO, GPIO_MODE_OUTPUT);
-	gpio_set_direction(RELAY_2_GPIO, GPIO_MODE_OUTPUT);
+	//gpio_reset_pin(RELAY_1_GPIO);
+	//gpio_reset_pin(RELAY_2_GPIO);
+	//gpio_set_direction(RELAY_1_GPIO, GPIO_MODE_OUTPUT);
+	//gpio_set_direction(RELAY_2_GPIO, GPIO_MODE_OUTPUT);
+	//gpio_set_pull_mode(RELAY_1_GPIO, GPIO_PULLUP_ONLY);
+	//gpio_set_pull_mode(RELAY_2_GPIO, GPIO_PULLUP_ONLY);
+
+#define GPIO_OUTPUT_IO_0    47
+#define GPIO_OUTPUT_IO_1    48
+#define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_IO_0) | (1ULL<<GPIO_OUTPUT_IO_1))
+
+    //zero-initialize the config structure.
+    gpio_config_t io_conf = {};
+    //disable interrupt
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set,e.g.GPIO18/19
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    //disable pull-down mode
+    io_conf.pull_down_en = 0;
+    //disable pull-up mode
+    io_conf.pull_up_en = 0;
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
 
 	ESP_LOGD(TAG, "GPIO init complite. Duration: %d ms. Heap usage: %d free heap:%d", (xTaskGetTickCount() - startTick) * portTICK_RATE_MS, heapBefore - xPortGetFreeHeapSize(),
 			xPortGetFreeHeapSize());
@@ -581,6 +620,7 @@ void app_main(void) {
 	setLogLevel(4);
 	initLeds();
 	board_init();
+	relayGPIO_init();
 
 	spiffs_init();
 	nvs_init();
@@ -626,7 +666,7 @@ void app_main(void) {
 		} else {
 			ESP_LOGD(TAG, "Load Content FAIL");
 			lcdFillScreen(&screen, BLACK);
-			lcdDrawString(&screen, fx32G, 15, 140,(uint8_t*) "Load content FAIL", RED);
+			lcdDrawString(&screen, fx32G, 15, 140, (uint8_t*) "Load content FAIL", RED);
 			showState(LED_STATE_CONTENT_ERROR);
 			writeErrorTxt("Load content FAIL");
 			monofon_state.content_error = 1;
@@ -659,7 +699,7 @@ void app_main(void) {
 	console_init();
 
 	vTaskDelay(pdMS_TO_TICKS(100));
-	ESP_LOGI(TAG, "Load complite, start working. free Heap size %d", xPortGetFreeHeapSize());
+	ESP_LOGI(TAG, "Ver 6_4_4. Load complite, start working. free Heap size %d", xPortGetFreeHeapSize());
 
 	while (1) {
 

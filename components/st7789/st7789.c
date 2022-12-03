@@ -211,6 +211,13 @@ void lcdInit(TFT_t *dev, int width, int height, int offsetx, int offsety) {
 	spi_master_write_command(dev, 0x36);	//Memory Data Access Control
 	spi_master_write_data_byte(dev, 0x00);
 
+	spi_master_write_command(dev, 0x36);
+	spi_master_write_data_byte(dev, (0x80|0x20|0x00));//Set rotation
+
+	uint16_t x_start = 0 + 80, x_end = 240 + 80;
+	uint16_t y_start = 0 + 80, y_end = 240 + 80;
+
+
 	spi_master_write_command(dev, 0x2A);	//Column Address Set
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
@@ -222,6 +229,9 @@ void lcdInit(TFT_t *dev, int width, int height, int offsetx, int offsety) {
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0xF0);
+
+	spi_master_write_command(dev, 0x2C);
+
 
 	spi_master_write_command(dev, 0x21);	//Display Inversion On
 	delayMS(10);
@@ -274,11 +284,11 @@ void lcdDrawMultiPixels(TFT_t *dev, uint16_t x, uint16_t y, uint16_t size, uint1
 	uint16_t _y1 = y + dev->_offsety;
 	uint16_t _y2 = _y1;
 
-	spi_master_write_command(dev, 0x2A);	// set column(x) address
-	spi_master_write_addr(dev, _x1, _x2);
-	spi_master_write_command(dev, 0x2B);	// set Page(y) address
-	spi_master_write_addr(dev, _y1, _y2);
-	spi_master_write_command(dev, 0x2C);	//	Memory Write
+	//spi_master_write_command(dev, 0x2A);	// set column(x) address
+	//spi_master_write_addr(dev, _x1, _x2);
+	//spi_master_write_command(dev, 0x2B);	// set Page(y) address
+	//spi_master_write_addr(dev, _y1, _y2);
+	//spi_master_write_command(dev, 0x2C);	//	Memory Write
 	spi_master_write_colors(dev, colors, size);
 }
 
@@ -476,186 +486,10 @@ void lcdDrawTriangle(TFT_t *dev, uint16_t xc, uint16_t yc, uint16_t w, uint16_t 
 	lcdDrawLine(dev, x2, y2, x3, y3, color);
 }
 
-// Draw circle
-// x0:Central X coordinate
-// y0:Central Y coordinate
-// r:radius
-// color:color
-void lcdDrawCircle(TFT_t *dev, uint16_t x0, uint16_t y0, uint16_t r, uint16_t color) {
-	int x;
-	int y;
-	int err;
-	int old_err;
 
-	x = 0;
-	y = -r;
-	err = 2 - 2 * r;
-	do {
-		lcdDrawPixel(dev, x0 - x, y0 + y, color);
-		lcdDrawPixel(dev, x0 - y, y0 - x, color);
-		lcdDrawPixel(dev, x0 + x, y0 - y, color);
-		lcdDrawPixel(dev, x0 + y, y0 + x, color);
-		if ((old_err = err) <= x)
-			err += ++x * 2 + 1;
-		if (old_err > y || err > x)
-			err += ++y * 2 + 1;
-	} while (y < 0);
-}
 
-// Draw circle of filling
-// x0:Central X coordinate
-// y0:Central Y coordinate
-// r:radius
-// color:color
-void lcdDrawFillCircle(TFT_t *dev, uint16_t x0, uint16_t y0, uint16_t r, uint16_t color) {
-	int x;
-	int y;
-	int err;
-	int old_err;
-	int ChangeX;
 
-	x = 0;
-	y = -r;
-	err = 2 - 2 * r;
-	ChangeX = 1;
-	do {
-		if (ChangeX) {
-			lcdDrawLine(dev, x0 - x, y0 - y, x0 - x, y0 + y, color);
-			lcdDrawLine(dev, x0 + x, y0 - y, x0 + x, y0 + y, color);
-		} // endif
-		ChangeX = (old_err = err) <= x;
-		if (ChangeX)
-			err += ++x * 2 + 1;
-		if (old_err > y || err > x)
-			err += ++y * 2 + 1;
-	} while (y <= 0);
-}
 
-// Draw rectangle with round corner
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End	X coordinate
-// y2:End	Y coordinate
-// r:radius
-// color:color
-void lcdDrawRoundRect(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t r, uint16_t color) {
-	int x;
-	int y;
-	int err;
-	int old_err;
-	unsigned char temp;
-
-	if (x1 > x2) {
-		temp = x1;
-		x1 = x2;
-		x2 = temp;
-	} // endif
-
-	if (y1 > y2) {
-		temp = y1;
-		y1 = y2;
-		y2 = temp;
-	} // endif
-
-	ESP_LOGD(TAG, "x1=%d x2=%d delta=%d r=%d", x1, x2, x2 - x1, r);
-	ESP_LOGD(TAG, "y1=%d y2=%d delta=%d r=%d", y1, y2, y2 - y1, r);
-	if (x2 - x1 < r)
-		return; // Add 20190517
-	if (y2 - y1 < r)
-		return; // Add 20190517
-
-	x = 0;
-	y = -r;
-	err = 2 - 2 * r;
-
-	do {
-		if (x) {
-			lcdDrawPixel(dev, x1 + r - x, y1 + r + y, color);
-			lcdDrawPixel(dev, x2 - r + x, y1 + r + y, color);
-			lcdDrawPixel(dev, x1 + r - x, y2 - r - y, color);
-			lcdDrawPixel(dev, x2 - r + x, y2 - r - y, color);
-		} // endif 
-		if ((old_err = err) <= x)
-			err += ++x * 2 + 1;
-		if (old_err > y || err > x)
-			err += ++y * 2 + 1;
-	} while (y < 0);
-
-	ESP_LOGD(TAG, "x1+r=%d x2-r=%d", x1 + r, x2 - r);
-	lcdDrawLine(dev, x1 + r, y1, x2 - r, y1, color);
-	lcdDrawLine(dev, x1 + r, y2, x2 - r, y2, color);
-	ESP_LOGD(TAG, "y1+r=%d y2-r=%d", y1 + r, y2 - r);
-	lcdDrawLine(dev, x1, y1 + r, x1, y2 - r, color);
-	lcdDrawLine(dev, x2, y1 + r, x2, y2 - r, color);
-}
-
-// Draw arrow
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End	X coordinate
-// y2:End	Y coordinate
-// w:Width of the botom
-// color:color
-// Thanks http://k-hiura.cocolog-nifty.com/blog/2010/11/post-2a62.html
-void lcdDrawArrow(TFT_t *dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t w, uint16_t color) {
-	double Vx = x1 - x0;
-	double Vy = y1 - y0;
-	double v = sqrt(Vx * Vx + Vy * Vy);
-	//	 printf("v=%f\n",v);
-	double Ux = Vx / v;
-	double Uy = Vy / v;
-
-	uint16_t L[2], R[2];
-	L[0] = x1 - Uy * w - Ux * v;
-	L[1] = y1 + Ux * w - Uy * v;
-	R[0] = x1 + Uy * w - Ux * v;
-	R[1] = y1 - Ux * w - Uy * v;
-	//printf("L=%d-%d R=%d-%d\n",L[0],L[1],R[0],R[1]);
-
-	//lcdDrawLine(x0,y0,x1,y1,color);
-	lcdDrawLine(dev, x1, y1, L[0], L[1], color);
-	lcdDrawLine(dev, x1, y1, R[0], R[1], color);
-	lcdDrawLine(dev, L[0], L[1], R[0], R[1], color);
-}
-
-// Draw arrow of filling
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End	X coordinate
-// y2:End	Y coordinate
-// w:Width of the botom
-// color:color
-void lcdDrawFillArrow(TFT_t *dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t w, uint16_t color) {
-	double Vx = x1 - x0;
-	double Vy = y1 - y0;
-	double v = sqrt(Vx * Vx + Vy * Vy);
-	//printf("v=%f\n",v);
-	double Ux = Vx / v;
-	double Uy = Vy / v;
-
-	uint16_t L[2], R[2];
-	L[0] = x1 - Uy * w - Ux * v;
-	L[1] = y1 + Ux * w - Uy * v;
-	R[0] = x1 + Uy * w - Ux * v;
-	R[1] = y1 - Ux * w - Uy * v;
-	//printf("L=%d-%d R=%d-%d\n",L[0],L[1],R[0],R[1]);
-
-	lcdDrawLine(dev, x0, y0, x1, y1, color);
-	lcdDrawLine(dev, x1, y1, L[0], L[1], color);
-	lcdDrawLine(dev, x1, y1, R[0], R[1], color);
-	lcdDrawLine(dev, L[0], L[1], R[0], R[1], color);
-
-	int ww;
-	for (ww = w - 1; ww > 0; ww--) {
-		L[0] = x1 - Uy * ww - Ux * v;
-		L[1] = y1 + Ux * ww - Uy * v;
-		R[0] = x1 + Uy * ww - Ux * v;
-		R[1] = y1 - Ux * ww - Uy * v;
-		//printf("Fill>L=%d-%d R=%d-%d\n",L[0],L[1],R[0],R[1]);
-		lcdDrawLine(dev, x1, y1, L[0], L[1], color);
-		lcdDrawLine(dev, x1, y1, R[0], R[1], color);
-	}
-}
 
 // RGB565 conversion
 // RGB565 is R(5)+G(6)+B(5)=16bit color format.

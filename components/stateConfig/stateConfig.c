@@ -454,19 +454,23 @@ uint8_t loadContent(void) {
 
 	search_introIcon("/");
 
+	res = f_opendir(&dir, "/");
 	if (search_contenInDir("/") == 0) {
 		ESP_LOGD(TAG, "No content in root dir. Try search in subdir");
 		while (1) {
 			res = f_readdir(&dir, &fno); /* Read a directory item */
-			if (res != FR_OK || fno.fname[0] == 0)
-				break;
+
 			if (fno.fattrib & AM_DIR) {
 				//char path[300];
 				//sprintf(path, "/%s/",fno.fname);
 				//search_contenInDir(path);
 				//sprintf(fno.fname, "/%s/",fno.fname);
+				ESP_LOGD(TAG,"openDir: %s", fno.fname);
 				search_contenInDir(fno.fname);
 			}
+
+			if (res != FR_OK || fno.fname[0] == 0)
+				break;
 		}
 	}
 

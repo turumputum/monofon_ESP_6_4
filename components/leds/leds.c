@@ -160,7 +160,7 @@ void initLeds() {
 		}
 	}
 	ESP_LOGD(TAG,
-			"SD_card init complite. Duration: %d ms. Heap usage: %d free heap:%d",
+			"Leds init complite. Duration: %d ms. Heap usage: %d free heap:%d",
 			(xTaskGetTickCount() - startTick) * portTICK_RATE_MS,
 			heapBefore - xPortGetFreeHeapSize(), xPortGetFreeHeapSize());
 
