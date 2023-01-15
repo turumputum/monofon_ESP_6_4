@@ -212,28 +212,12 @@ static usbh_dev0_t _dev0;
 // TODO: hub can has its own simpler struct to save memory
 CFG_TUSB_MEM_SECTION usbh_device_t _usbh_devices[TOTAL_DEVICES];
 
-// Mutex for claiming endpoint, only needed when using with preempted RTOS
-#if TUSB_OPT_MUTEX
-static osal_mutex_def_t _usbh_mutexdef;
-static osal_mutex_t _usbh_mutex;
-
-TU_ATTR_ALWAYS_INLINE static inline void usbh_lock(void)
-{
-  osal_mutex_lock(_usbh_mutex, OSAL_TIMEOUT_WAIT_FOREVER);
-}
-
-TU_ATTR_ALWAYS_INLINE static inline void usbh_unlock(void)
-{
-  osal_mutex_unlock(_usbh_mutex);
-}
-
+// Mutex for claiming endpoint
+#if OSAL_MUTEX_REQUIRED
+  static osal_mutex_def_t _usbh_mutexdef;
+  static osal_mutex_t _usbh_mutex;
 #else
-
-#define _usbh_mutex   NULL
-
-#define usbh_lock()
-#define usbh_unlock()
-
+  #define _usbh_mutex   NULL
 #endif
 
 // Event queue
@@ -277,8 +261,6 @@ static bool usbh_control_xfer_cb (uint8_t daddr, uint8_t ep_addr, xfer_result_t 
 // TODO rework time-related function later
 void osal_task_delay(uint32_t msec)
 {
-  (void) msec;
-
   const uint32_t start = hcd_frame_number(_usbh_controller);
   while ( ( hcd_frame_number(_usbh_controller) - start ) < msec ) {}
 }
@@ -352,8 +334,8 @@ bool tuh_init(uint8_t controller_id)
   _usbh_q = osal_queue_create( &_usbh_qdef );
   TU_ASSERT(_usbh_q != NULL);
 
-#if TUSB_OPT_MUTEX
-  // Mutex
+#if OSAL_MUTEX_REQUIRED
+  // Init mutex
   _usbh_mutex = osal_mutex_create(&_usbh_mutexdef);
   TU_ASSERT(_usbh_mutex);
 #endif
@@ -537,8 +519,7 @@ bool tuh_control_xfer (tuh_xfer_t* xfer)
 
   uint8_t const daddr = xfer->daddr;
 
-  // TODO probably better to use semaphore as resource management than mutex
-  usbh_lock();
+  (void) osal_mutex_lock(_usbh_mutex, OSAL_TIMEOUT_WAIT_FOREVER);
 
   bool const is_idle = (_ctrl_xfer.stage == CONTROL_STAGE_IDLE);
   if (is_idle)
@@ -553,7 +534,7 @@ bool tuh_control_xfer (tuh_xfer_t* xfer)
     _ctrl_xfer.user_data   = xfer->user_data;
   }
 
-  usbh_unlock();
+  (void) osal_mutex_unlock(_usbh_mutex);
 
   TU_VERIFY(is_idle);
   const uint8_t rhport = usbh_get_rhport(daddr);
@@ -597,9 +578,9 @@ bool tuh_control_xfer (tuh_xfer_t* xfer)
 
 TU_ATTR_ALWAYS_INLINE static inline void _set_control_xfer_stage(uint8_t stage)
 {
-  usbh_lock();
+  (void) osal_mutex_lock(_usbh_mutex, OSAL_TIMEOUT_WAIT_FOREVER);
   _ctrl_xfer.stage = stage;
-  usbh_unlock();
+  (void) osal_mutex_unlock(_usbh_mutex);
 }
 
 static void _xfer_complete(uint8_t daddr, xfer_result_t result)
@@ -620,9 +601,7 @@ static void _xfer_complete(uint8_t daddr, xfer_result_t result)
     .user_data   = _ctrl_xfer.user_data
   };
 
-  usbh_lock();
-  _ctrl_xfer.stage = CONTROL_STAGE_IDLE;
-  usbh_unlock();
+  _set_control_xfer_stage(CONTROL_STAGE_IDLE);
 
   if (xfer_temp.complete_cb)
   {
@@ -1182,12 +1161,28 @@ static void enum_full_complete(void);
 // process device enumeration
 static void process_enumeration(tuh_xfer_t* xfer)
 {
+  // Retry a few times with transfers in enumeration since device can be unstable when starting up
+  enum {
+    ATTEMPT_COUNT_MAX = 3,
+    ATTEMPT_DELAY_MS = 100
+  };
+  static uint8_t failed_count = 0;
+
   if (XFER_RESULT_SUCCESS != xfer->result)
   {
-    // stop enumeration, maybe we could retry this
-    enum_full_complete();
+    // retry if not reaching max attempt
+    if ( failed_count < ATTEMPT_COUNT_MAX )
+    {
+      failed_count++;
+      osal_task_delay(ATTEMPT_DELAY_MS); // delay a bit
+      TU_ASSERT(tuh_control_xfer(xfer), );
+    }else
+    {
+      enum_full_complete();
+    }
     return;
   }
+  failed_count = 0;
 
   uint8_t const daddr = xfer->daddr;
   uintptr_t const state = xfer->user_data;
@@ -1261,7 +1256,7 @@ static void process_enumeration(tuh_xfer_t* xfer)
         // connected directly to roothub
         hcd_port_reset( _dev0.rhport );
         osal_task_delay(RESET_DELAY); // TODO may not work for no-OS on MCU that require reset_end() since
-                                      // sof of controller may not running while reseting
+                                      // sof of controller may not running while resetting
         hcd_port_reset_end(_dev0.rhport);
         // TODO: fall through to SET ADDRESS, refactor later
       }
@@ -1381,7 +1376,7 @@ static bool enum_new_device(hcd_event_t* event)
     // wait until device is stable TODO non blocking
     hcd_port_reset(_dev0.rhport);
     osal_task_delay(RESET_DELAY); // TODO may not work for no-OS on MCU that require reset_end() since
-                                  // sof of controller may not running while reseting
+                                  // sof of controller may not running while resetting
     hcd_port_reset_end( _dev0.rhport);
 
     // device unplugged while delaying

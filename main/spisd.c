@@ -13,6 +13,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+//#define FORCE_SD_40MHZ
+
+esp_err_t sdmmc_host_set_card_clk(int slot, uint32_t freq_khz);
+
 static const char *TAG = "SDSPI";
 
 #define MOUNT_POINT "/sdcard"
@@ -49,6 +53,12 @@ int spisd_mount_fs()
 
     if (ret == ESP_OK)
     {
+#ifdef FORCE_SD_40MHZ
+        card->max_freq_khz = 40000;
+        sdmmc_host_set_card_clk(&host.slot, 40000);
+        sdspi_host_set_card_clk(host.slot, 40000);
+#endif
+
     	ESP_LOGD(TAG,"Filesystem mounted:");
         //sdmmc_card_print_info(stdout, card);
 
@@ -74,6 +84,10 @@ int spisd_init()
     esp_err_t   ret;
 
     ESP_LOGD(TAG,"Initializing SD card");
+
+#ifdef FORCE_SD_40MHZ
+    host.max_freq_khz  = 40000;
+#endif
 
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = PIN_NUM_MOSI,

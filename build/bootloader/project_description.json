@@ -1,8 +1,8 @@
 {
     "project_name":       "bootloader",
     "project_path":       "C:/Espressif/frameworks/esp-idf-v4.4/components/bootloader/subproject",
-    "build_dir":          "C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/bootloader",
-    "config_file":        "C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/sdkconfig",
+    "build_dir":          "C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4_5/build/bootloader",
+    "config_file":        "C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4_5/sdkconfig",
     "config_defaults":    "",
     "app_elf":            "bootloader.elf",
     "app_bin":            "bootloader.bin",

@@ -102,7 +102,7 @@ int isMscEnabled() {
 	return flagMscEnabled;
 }
 
-#define RTC_FLAG_ENABLED_VALUE		0xAAAA5555
+#define RTC_FLAG_DISABLED_VALUE		0xAAAA5555
 
 TFT_t screen;
 FontxFile fx32G[2];
@@ -118,38 +118,20 @@ uint32_t ADC_AVERAGE;
 void listenListener(void *pvParameters);
 
 void RTC_IRAM_ATTR storeMscFlag() {
-	RTC_flagMscEnabled = flagMscEnabled ? RTC_FLAG_ENABLED_VALUE : 0;
+	RTC_flagMscEnabled = flagMscEnabled ? 0 : RTC_FLAG_DISABLED_VALUE;
 }
 
 void RTC_IRAM_ATTR loadMscFlag() {
-	flagMscEnabled = RTC_flagMscEnabled == RTC_FLAG_ENABLED_VALUE;
+	flagMscEnabled = RTC_flagMscEnabled != RTC_FLAG_DISABLED_VALUE;
 
 	//printf("@@@@@@@@@@@@@@@@@@@@@@@@ flagMscEnabled = %d\n", flagMscEnabled);
 }
 
-void setMscEnabled(int ena) {
-	flagMscEnabled = ena;
-	storeMscFlag();
-	FLAG_PC_AVAILEBLE = ena;
-	ESP_LOGD(TAG, "Set USB MSD to: %d", ena);
-
-	xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL,
-	configMAX_PRIORITIES - 1, usb_device_stack, &usb_device_taskdef);
-	xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL,
-	configMAX_PRIORITIES - 2, cdc_stack, &cdc_taskdef);
-
-	if (ena == 1) {
-		vTaskDelay(pdMS_TO_TICKS(1000));
-		while (FLAG_PC_AVAILEBLE && !FLAG_PC_EJECT) {
-			showState(LED_STATE_MSD_WORK);
-			printf("PC_AVAILEBLE - WORK MSD+CDC \r\n");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-		}
-		ESP_LOGD(TAG, "Set USB MSD to: %d", ena);
-		vTaskDelete(&usb_device_taskdef);
-		vTaskDelete(&cdc_taskdef);
-	}
-	//esp_restart();
+void setMscEnabledOriginal(int ena)
+{
+    flagMscEnabled = ena;
+    storeMscFlag();
+    esp_restart();
 }
 
 static void sensTask(void *arg) {
@@ -616,16 +598,14 @@ void setLogLevel(uint8_t level) {
 
 }
 
-void app_main(void) {
-	setLogLevel(4);
-	initLeds();
-	board_init();
+
+
+void default_app_main(void) {
+
 	relayGPIO_init();
 
-	spiffs_init();
+	//spiffs_init();
 	nvs_init();
-
-	st7789_init();
 
 	ESP_LOGI(TAG, "try init sdCard");
 	//if (sd_card_init() != ESP_OK) {
@@ -641,8 +621,9 @@ void app_main(void) {
 		if (remove("/sdcard/error.txt")) {
 			ESP_LOGD(TAG, "/sdcard/error.txt delete failed");
 		}
-		setMscEnabled(1);
-		setMscEnabled(0);
+		//setMscEnabled(1);
+		//setMscEnabled(0);
+
 
 		load_Default_Config();
 		int res = loadConfig();
@@ -699,7 +680,7 @@ void app_main(void) {
 	console_init();
 
 	vTaskDelay(pdMS_TO_TICKS(100));
-	ESP_LOGI(TAG, "Ver 6_4_4. Load complite, start working. free Heap size %d", xPortGetFreeHeapSize());
+	ESP_LOGI(TAG, "Ver 6_4_5. Load complite, start working. free Heap size %d", xPortGetFreeHeapSize());
 
 	while (1) {
 
@@ -717,35 +698,70 @@ void app_main(void) {
 	}
 }
 
-/*
- void app_main_2(void) {
+void app_main(void) {
 
- board_init();
+	setLogLevel(4);
+	initLeds();
+	board_init();
+//	relayGPIO_init();
 
- setLogLevel(4);
- ESP_LOGD(TAG, "Start up");
- ESP_LOGD(TAG, "free Heap size %d", xPortGetFreeHeapSize());
+	spiffs_init();
+//	nvs_init();
 
- loadMscFlag();
+	st7789_init();
 
- if (isMscEnabled()) {
- spisd_init();
- spisd_mount_fs();
+	ESP_LOGD(TAG, "Start up");
+	ESP_LOGD(TAG, "free Heap size %d", xPortGetFreeHeapSize());
 
- xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL,
- configMAX_PRIORITIES - 1, usb_device_stack, &usb_device_taskdef);
- xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL,
- configMAX_PRIORITIES - 2, cdc_stack, &cdc_taskdef);
+	xTaskCreateStatic( usb_device_task, "usbd", USBD_STACK_SIZE, NULL, configMAX_PRIORITIES-1, usb_device_stack, &usb_device_taskdef);
+	xTaskCreateStatic( cdc_task, "cdc", CDC_STACK_SZIE, NULL, configMAX_PRIORITIES-2, cdc_stack, &cdc_taskdef);
+	ESP_LOGD(TAG, "CDC task started");
+	loadMscFlag();
 
- while (1) {
- vTaskDelay(pdMS_TO_TICKS(100));
- }
- }
- //else
- //default_main_app();
- }
+	if (isMscEnabled())
+	{
+		spisd_init();
 
- */
+		ESP_LOGD(TAG, "@@@@@@@ checking USB connected...");
+
+		for (int i = 0; !FLAG_PC_AVAILEBLE && (i < 200); i++)
+		{
+			vTaskDelay(pdMS_TO_TICKS(100));	
+		}
+
+		ESP_LOGD(TAG, "@@@@@@@ FLAG_PC_AVAILEBLE = %d", FLAG_PC_AVAILEBLE);
+
+		if (FLAG_PC_AVAILEBLE)
+		{
+			ESP_LOGD(TAG, "@@@@@@@ WORKING AS MSC + CDC");
+
+			lcdDrawString(&screen, fx32G, 25, 140, (uint8_t*) "USB Storage", WHITE);
+			showState(LED_STATE_MSD_WORK);
+
+
+			while (1)
+			{
+				vTaskDelay(pdMS_TO_TICKS(100));
+				if(FLAG_PC_EJECT==1){
+					vTaskDelay(pdMS_TO_TICKS(1000));
+					setMscEnabledOriginal(false);
+				}
+			}
+		}
+		else
+		{
+			ESP_LOGD(TAG, "@@@@@@@ DISABLING MSC AND REBOOTING");
+			setMscEnabledOriginal(false);
+		}
+	}
+	else
+	{
+		ESP_LOGD(TAG, "@@@@@@@ WORKING AS DEFAULT");
+
+		default_app_main();
+	}
+}
+
 // USB Device Driver task
 // This top level thread process all usb events and invoke callbacks
 extern void reconnectUsb();

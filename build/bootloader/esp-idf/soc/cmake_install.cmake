@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/bootloader/esp-idf/soc/esp32s3/cmake_install.cmake")
+  include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4_5/build/bootloader/esp-idf/soc/esp32s3/cmake_install.cmake")
 
 endif()
 

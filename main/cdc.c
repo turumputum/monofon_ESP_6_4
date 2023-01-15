@@ -3,9 +3,8 @@
 #include "tusb.h"
 #include "stdbool.h"
 
-extern void setMscEnabled(int ena);
+extern void setMscEnabledOriginal(int ena);
 extern int isMscEnabled();
-extern uint8_t FLAG_PC_AVAILEBLE;
 
 int flagListDir = 0;
 
@@ -53,7 +52,8 @@ static void execCommand(char * cmd, int len)
         else
         {
           usbprint("\r\nturning MSC on\r\n");
-          esp_restart();
+          //esp_restart();
+          setMscEnabledOriginal(1);
         }
       }
       else
@@ -65,8 +65,8 @@ static void execCommand(char * cmd, int len)
         else
         {
           usbprint("\r\nturning MSC off\r\n");
-          FLAG_PC_AVAILEBLE=0;
           flagListDir = 1;
+          setMscEnabledOriginal(0);
         }
       }
     }

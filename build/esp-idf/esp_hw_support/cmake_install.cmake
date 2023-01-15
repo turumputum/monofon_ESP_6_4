@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/IDE_Monofon_6-4")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/IDE_Monofon_6-4_5")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4/build/esp-idf/esp_hw_support/port/esp32s3/cmake_install.cmake")
+  include("C:/Users/Yac/YandexDisk/Monofon/MonofonESP/IDE_Monofon_6-4_5/build/esp-idf/esp_hw_support/port/esp32s3/cmake_install.cmake")
 
 endif()
 
